@@ -8,6 +8,7 @@ $ugc_order_id = $_GET['order_id'] ?? 0;
 $stmt = $pdo->prepare("SELECT * FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
+require_creator_record($creator);
 
 $stmt = $pdo->prepare("SELECT * FROM ugc_orders WHERE id = ? AND status = 'published'");
 $stmt->execute([$ugc_order_id]);
@@ -77,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
                     $stmt->execute([$ugc_order['brand_id']]);
                     $brand = $stmt->fetch();
 
-                    create_notification_batch(
+                    if ($brand) create_notification_batch(
                         [$brand['user_id']],
                         'New UGC Submission',
                         $creator['full_name'] . ' submitted to your order: ' . $ugc_order['title'],

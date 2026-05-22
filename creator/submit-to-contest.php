@@ -8,6 +8,7 @@ $contest_id = $_GET['contest_id'] ?? 0;
 $stmt = $pdo->prepare("SELECT * FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
+require_creator_record($creator);
 
 $stmt = $pdo->prepare("SELECT * FROM contests WHERE id = ? AND status = 'live'");
 $stmt->execute([$contest_id]);
@@ -85,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
                     $stmt->execute([$contest['brand_id']]);
                     $brand = $stmt->fetch();
 
-                    create_notification_batch(
+                    if ($brand) create_notification_batch(
                         [$brand['user_id']],
                         'New Contest Submission',
                         $creator['full_name'] . ' submitted to your contest: ' . $contest['title'],

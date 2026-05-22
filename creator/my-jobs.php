@@ -6,6 +6,7 @@ require_role('creator');
 $stmt = $pdo->prepare("SELECT * FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
+require_creator_record($creator);
 
 // Fetch jobs along with the most recent submission video per job (if any)
 $stmt = $pdo->prepare("

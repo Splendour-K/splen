@@ -22,18 +22,21 @@ if ($role === "creator") {
 }
 
 // Fetch Conversations
-$sql = "SELECT c.*,
-               CASE WHEN ? = 'creator' THEN b.brand_name ELSE cr.full_name END as partner_name,
-               CASE WHEN ? = 'creator' THEN b.logo ELSE cr.profile_photo END as partner_photo
-        FROM conversations c
-        LEFT JOIN brands b ON c.brand_id = b.id
-        LEFT JOIN creators cr ON c.creator_id = cr.id
-        WHERE c.$id_field = ?
-        ORDER BY c.updated_at DESC";
+$conversations = [];
+if ($my_id) {
+    $sql = "SELECT c.*,
+                   CASE WHEN c.brand_id = b.id AND ? = 'creator' THEN b.brand_name ELSE cr.full_name END as partner_name,
+                   CASE WHEN ? = 'creator' THEN b.logo ELSE cr.profile_photo END as partner_photo
+            FROM conversations c
+            LEFT JOIN brands b ON c.brand_id = b.id
+            LEFT JOIN creators cr ON c.creator_id = cr.id
+            WHERE c.$id_field = ?
+            ORDER BY c.updated_at DESC";
 
-$stmt_conv = $pdo->prepare($sql);
-$stmt_conv->execute([$role, $role, $my_id]);
-$conversations = $stmt_conv->fetchAll();
+    $stmt_conv = $pdo->prepare($sql);
+    $stmt_conv->execute([$role, $role, $my_id]);
+    $conversations = $stmt_conv->fetchAll();
+}
 
 include "includes/header.php";
 ?>

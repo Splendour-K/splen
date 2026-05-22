@@ -113,6 +113,17 @@ function e($text) {
     return htmlspecialchars($text, ENT_QUOTES, "UTF-8");
 }
 
+function require_creator_record($creator, $redirect = true) {
+    if ($creator !== false && is_array($creator) && !empty($creator['id'])) {
+        return true;
+    }
+    if ($redirect) {
+        header("Location: " . APP_URL . "creator/profile.php?setup=1");
+        exit();
+    }
+    return false;
+}
+
 function require_brand_record($brand, $redirect = true) {
     if ($brand !== false && is_array($brand) && !empty($brand['id'])) {
         return true;

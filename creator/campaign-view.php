@@ -13,6 +13,7 @@ if (!$camp) redirect('creator/browse.php');
 $stmt = $pdo->prepare("SELECT * FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
+require_creator_record($creator);
 
 $error = '';
 $success = '';

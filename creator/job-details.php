@@ -12,7 +12,7 @@ $job_id = $_GET['id'];
 
 // Get Job Details with Campaign and Brand info
 $stmt = $pdo->prepare("
-    SELECT j.*, c.title, c.description, c.perks, c.requirements, b.brand_name, b.industry
+    SELECT j.*, c.title, c.goal, c.main_message, c.required_shots, c.words_to_say, c.call_to_action, b.brand_name, b.industry
     FROM jobs j
     JOIN campaigns c ON j.campaign_id = c.id
     JOIN brands b ON j.brand_id = b.id

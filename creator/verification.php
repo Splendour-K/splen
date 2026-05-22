@@ -6,14 +6,11 @@ require_role('creator');
 $stmt = $pdo->prepare("SELECT * FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
+require_creator_record($creator);
 
 $stmt = $pdo->prepare("SELECT * FROM creator_verifications WHERE creator_id = ?");
 $stmt->execute([$creator['id']]);
 $verif = $stmt->fetch();
-
-if (!$creator) {
-    redirect('creator/dashboard.php');
-}
 
 $error = '';
 $success = isset($_GET['submitted']) ? 'Verification documents submitted! Admin will review them.' : '';

@@ -8,6 +8,7 @@ $contest_id = $_GET['contest_id'] ?? 0;
 $stmt = $pdo->prepare("SELECT * FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
+require_creator_record($creator);
 $creator_id = $creator['id'];
 
 if (!$contest_id) {

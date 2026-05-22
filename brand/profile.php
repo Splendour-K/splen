@@ -5,7 +5,11 @@ require_role('brand');
 
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
-$brand = $stmt->fetch();
+$brand = $stmt->fetch() ?: [
+    'id' => null, 'brand_name' => '', 'contact_person' => '', 'industry' => '',
+    'website' => '', 'phone' => '', 'country' => '', 'city' => '', 'logo' => '',
+    'subscription_tier' => 'basic', 'user_id' => $_SESSION['user_id'],
+];
 
 $success = '';
 $error = '';

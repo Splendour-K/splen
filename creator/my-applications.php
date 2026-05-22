@@ -7,6 +7,7 @@ require_role('creator');
 $stmt = $pdo->prepare("SELECT id FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
+require_creator_record($creator);
 $creator_id = $creator['id'];
 
 // Get all applications
