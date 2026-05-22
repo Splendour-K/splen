@@ -69,6 +69,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$contest_id, $i, $position, $amount, $currency]);
                 }
 
+                // Notify all creators of the new contest
+                try {
+                    $cids = $pdo->query("SELECT user_id FROM creators WHERE user_id IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+                    if ($cids) {
+                        create_notification_batch(
+                            $cids,
+                            'New Contest: ' . mb_substr($title, 0, 60),
+                            ($brand['brand_name'] ?? 'A brand') . ' launched a new contest — ' . $currency . ' ' . number_format($budget_num, 0) . ' prize pool. Enter now!',
+                            'contest',
+                            'contest-board.php',
+                            'contest',
+                            (int)$contest_id
+                        );
+                    }
+                } catch (Exception $notif_err) {
+                    error_log('Contest notification failed: ' . $notif_err->getMessage());
+                }
+
                 $success = "Contest created successfully!";
             } catch (Exception $e) {
                 $error = "Error: " . $e->getMessage();

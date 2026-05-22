@@ -108,9 +108,38 @@
             color: #475569 !important;
             font-weight: 500;
         }
+
+        /* ── Notification Toasts ── */
+        #splt-toast-container {
+            position: fixed; top: 5rem; right: 1.25rem;
+            z-index: 9999; display: flex; flex-direction: column;
+            gap: .625rem; pointer-events: none; max-width: 22rem; width: calc(100vw - 2.5rem);
+        }
+        .splt-toast {
+            background: #fff; border-radius: 1rem;
+            padding: .875rem 1rem;
+            box-shadow: 0 20px 40px -8px rgba(0,0,0,.18);
+            border-left: 3px solid #ea580c;
+            display: flex; align-items: flex-start; gap: .75rem;
+            pointer-events: all;
+            animation: splt-in .32s cubic-bezier(.21,1.02,.73,1) forwards;
+        }
+        .dark .splt-toast { background: #1e293b; }
+        .splt-toast.splt-toast-exit { animation: splt-out .32s ease forwards; }
+        .splt-toast-icon { font-size: 1.2rem; flex-shrink: 0; padding-top: 1px; }
+        .splt-toast-body { flex: 1; min-width: 0; }
+        .splt-toast-title { font-size: .8125rem; font-weight: 800; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .dark .splt-toast-title { color: #f1f5f9; }
+        .splt-toast-msg { font-size: .6875rem; color: #6b7280; margin-top: .2rem; line-height: 1.45; }
+        .dark .splt-toast-msg { color: #94a3b8; }
+        .splt-toast-close { background: none; border: none; cursor: pointer; color: #9ca3af; font-size: 1.1rem; line-height: 1; padding: 0 0 0 .5rem; flex-shrink: 0; }
+        .splt-toast-close:hover { color: #374151; }
+        @keyframes splt-in  { from { opacity: 0; transform: translateX(110%) scale(.94); } to { opacity: 1; transform: none; } }
+        @keyframes splt-out { to   { opacity: 0; transform: translateX(110%) scale(.94); } }
     </style>
 </head>
 <body class="bg-white dark:bg-gray-950">
+<div id="splt-toast-container" aria-live="polite" aria-label="Notifications"></div>
     <header>
         <nav id="nav" class="absolute group z-10 w-full border-b border-black/5 dark:border-white/5 lg:border-transparent">
             <div class="max-w-7xl mx-auto px-6 md:px-12">
@@ -147,7 +176,7 @@
                                 <?php if (isset($_SESSION['user_id'])): ?>
                                     <a href="<?php echo APP_URL . ($_SESSION['role'] === 'admin' ? 'admin' : $_SESSION['role']); ?>/dashboard.php" class="hover:text-primary block transition dark:hover:text-white md:px-4 relative flex items-center">
                                         <span>Dashboard</span>
-                                        <span id="global-unread-badge" class="ml-1 w-4 h-4 bg-secondary text-white text-[9px] font-black rounded-full flex items-center justify-center" style="display:none;">0</span>
+                                        <span id="global-unread-badge" class="notif-badge ml-1 w-4 h-4 bg-secondary text-white text-[9px] font-black rounded-full items-center justify-center hidden">0</span>
                                     </a>
                                 <?php else: ?>
                                     <a href="<?php echo APP_URL; ?>login.php" class="hover:text-primary block transition dark:hover:text-white md:px-4">
@@ -201,4 +230,7 @@
             });
         });
     </script>
-    <script>window.APP_URL = <?php echo json_encode(APP_URL); ?>;</script>
+    <script>
+        window.APP_URL = <?php echo json_encode(APP_URL); ?>;
+        window.__LOGGED_IN__ = <?php echo isset($_SESSION['user_id']) ? 'true' : 'false'; ?>;
+    </script>

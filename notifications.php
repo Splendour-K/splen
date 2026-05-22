@@ -66,13 +66,19 @@ include 'includes/header.php';
                         
                         <div class="flex items-start gap-4">
                             <div class="w-12 h-12 rounded-2xl flex items-center justify-center bg-gray-50 dark:bg-gray-800 text-xl shadow-inner">
-                                <?php 
-                                    switch($n['type']) {
-                                        case 'payment': echo '💰'; break;
-                                        case 'job': echo '🎬'; break;
-                                        case 'application': echo '📩'; break;
-                                        case 'message': echo '💬'; break;
-                                        default: echo '⚡';
+                                <?php
+                                    switch ($n['type']) {
+                                        case 'payment':            echo '💰'; break;
+                                        case 'job':                echo '🎬'; break;
+                                        case 'application':        echo '📩'; break;
+                                        case 'message':            echo '💬'; break;
+                                        case 'campaign_published': echo '📢'; break;
+                                        case 'ugc_order':          echo '🎥'; break;
+                                        case 'contest':            echo '🏆'; break;
+                                        case 'contest_submission': echo '🎬'; break;
+                                        case 'ugc_submission':     echo '📹'; break;
+                                        case 'system':             echo '⚡'; break;
+                                        default:                   echo '🔔';
                                     }
                                 ?>
                             </div>
