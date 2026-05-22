@@ -1,0 +1,164 @@
+# Splennet Performance Optimization - Apache Configuration
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Remove index.php and /index from URL (SEO canonical)
+    RewriteCond %{THE_REQUEST} \s/+index(\.php)?[\s?] [NC]
+    RewriteRule ^index(\.php)?$ / [R=301,L]
+
+    # 2. Redirect .php URLs to clean URLs (optional but recommended)
+    RewriteCond %{THE_REQUEST} \s/+(.+?)\.php[\s?] [NC]
+    RewriteRule ^ %1 [R=301,L]
+
+    # 3. Canonical HTTPS + non-www
+    RewriteCond %{HTTPS} !=on [OR]
+    RewriteCond %{HTTP_HOST} ^www\.splennet\.com$ [NC]
+    RewriteRule ^ https://splennet.com%{REQUEST_URI} [R=301,L]
+
+    # 4. Internal rewrite to PHP
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.+)$ $1.php [L]
+</IfModule>
+
+# Gzip Compression
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xml+rss
+    AddOutputFilterByType DEFLATE application/atom+xml
+
+    # Don't compress images and already compressed files
+    SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|rar|zip|exe|flv|mov|wma|wmv|webm|mp4)$ no-gzip dont-vary
+</IfModule>
+
+# Browser Caching
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+
+    # Cache HTML for 1 hour
+    ExpiresByType text/html "access plus 1 hour"
+
+    # Cache CSS and JavaScript for 1 month
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+
+    # Cache images for 6 months
+    ExpiresByType image/jpeg "access plus 6 months"
+    ExpiresByType image/gif "access plus 6 months"
+    ExpiresByType image/png "access plus 6 months"
+    ExpiresByType image/webp "access plus 6 months"
+    ExpiresByType image/svg+xml "access plus 6 months"
+
+    # Cache fonts for 1 year
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/vnd.ms-fontobject "access plus 1 year"
+</IfModule>
+
+# Cache Control Headers
+<IfModule mod_headers.c>
+    # Default: no cache for HTML
+    <FilesMatch "\.php$">
+        Header set Cache-Control "private, no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+
+    # CSS and JS: 1 month
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=2592000, immutable"
+    </FilesMatch>
+
+    # Images: 6 months
+    <FilesMatch "\.(jpg|jpeg|png|gif|ico|svg|webp)$">
+        Header set Cache-Control "public, max-age=15552000, immutable"
+    </FilesMatch>
+
+    # Fonts: 1 year
+    <FilesMatch "\.(ttf|otf|woff|woff2|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+
+    # Security Headers
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# Optimize file serving
+<IfModule mod_setenvif.c>
+    SetEnvIfNoCase Request_URI ^.*/\.cache/ no-log
+</IfModule>
+
+# Deny access to sensitive files
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Deny access to cache directory
+<FilesMatch "^\.cache">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
+# Deny access to config files
+<FilesMatch "^config/">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
+# Deny access to repository and secret files
+<FilesMatch "(?i)^(?:\.env(?:\..*)?|\.gitignore|\.gitattributes|composer\.(?:json|lock)|package\.json|pnpm-lock\.yaml|schema\.sql|README(?:\.md)?|.*\.(?:sql|log|ini|env))$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Performance: Disable directory listing
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Block one-time migration and maintenance scripts from public web access
+<IfModule mod_rewrite.c>
+    RewriteRule ^(?:migrate(?:_[^/]+)?\.php|create_admin\.php|scripts/.*\.php|.*\.bak\.php)$ - [F,L,NC]
+</IfModule>
+
+# Set proper MIME types
+<IfModule mod_mime.c>
+    AddType application/javascript js
+    AddType text/css css
+    AddType image/svg+xml svg svgz
+    AddEncoding gzip svgz
+    AddType application/woff2 woff2
+    AddType application/woff woff
+    AddType application/json json
+</IfModule>

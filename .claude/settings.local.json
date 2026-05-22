@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l includes/functions.php)",
+      "Bash(curl -s http://localhost/splen/migrate_ugc_orders_v1.php)",
+      "Bash(curl -s http://localhost/splen/index.php)",
+      "Bash(curl -s \"http://localhost/splen/brand/my-contests.php\")"
+    ]
+  }
+}

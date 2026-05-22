@@ -1,0 +1,27 @@
+# Environment / secrets
+.env
+
+# Cache
+.cache/
+*.cache
+
+# Uploads (user content — large, not for git)
+assets/uploads/videos/
+assets/uploads/images/
+
+# IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Migration scripts (sensitive, run manually on server)
+migrate*.php
+create_admin.php
+scripts/
+
+# Logs
+*.log
+
+# Zip archives
+*.zip
