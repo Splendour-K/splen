@@ -24,10 +24,7 @@ $stmt_check->execute([$id, $creator['id']]);
 $existing_app = $stmt_check->fetch();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Only verified creators can apply
-    if ($creator['verification_status'] !== 'verified') {
-        $error = "You must be verified to apply.";
-    } elseif ($existing_app) {
+    if ($existing_app) {
         $error = "You have already applied for this campaign.";
     } else {
         $message = $_POST['application_message'];

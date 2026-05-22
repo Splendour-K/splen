@@ -21,9 +21,7 @@ if (!$ugc_order) {
 $error = '';
 $success = '';
 
-if ($creator['verification_status'] !== 'verified') {
-    $error = "You must be verified to submit UGC videos. Complete your profile verification first.";
-}
+// Verification is optional — unverified creators can still submit
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
     if (strtotime($ugc_order['deadline']) <= time()) {

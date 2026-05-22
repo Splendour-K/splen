@@ -85,13 +85,16 @@ $pending_payments = $pdo->query("SELECT COUNT(*) FROM payments WHERE status = 'p
 
 // Pending Verifications
 $stmt = $pdo->query("
-    SELECT c.*, cv.school_email, cv.id_upload, cv.letter_upload
+    SELECT c.id, c.full_name, c.verification_status,
+           cv.school_email, cv.id_upload, cv.letter_upload, cv.status as verif_status, cv.created_at as submitted_at
     FROM creators c
     JOIN creator_verifications cv ON c.id = cv.creator_id
-    WHERE c.verification_status = 'pending'
-    LIMIT 5
+    WHERE cv.status = 'pending'
+    ORDER BY cv.created_at ASC
+    LIMIT 10
 ");
 $pending_verifs = $stmt->fetchAll();
+$pending_verif_count = count($pending_verifs);
 
 // Recent Activity Logs
 $stmt_logs = $pdo->query("SELECT l.*, u.email FROM activity_logs l LEFT JOIN users u ON l.user_id = u.id ORDER BY l.created_at DESC LIMIT 5");
@@ -143,6 +146,52 @@ include '../includes/header.php';
                 </div>
             </div>
 
+            <!-- Pending Verifications - Full Width -->
+            <?php if ($pending_verif_count > 0): ?>
+            <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-orange-200 dark:border-orange-800 shadow-sm border-l-4 border-l-orange-500">
+                <div class="flex items-center justify-between mb-6">
+                    <h4 class="text-sm font-black uppercase tracking-widest text-orange-500">
+                        🎓 Pending Badge Verifications (<?php echo $pending_verif_count; ?>)
+                    </h4>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <?php foreach ($pending_verifs as $v): ?>
+                        <div class="p-5 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white"><?php echo e($v['full_name']); ?></p>
+                                    <p class="text-[10px] text-gray-500 font-medium"><?php echo e($v['school_email'] ?: 'No email provided'); ?></p>
+                                    <p class="text-[10px] text-gray-400"><?php echo time_ago($v['submitted_at']); ?></p>
+                                </div>
+                                <div class="flex gap-2 flex-shrink-0">
+                                    <a href="?action=verify&creator_id=<?php echo $v['id']; ?>" class="px-3 py-2 bg-green-500 text-white text-[10px] font-black rounded-lg hover:scale-105 transition shadow-lg shadow-green-500/20">✓ Approve</a>
+                                    <a href="?action=reject&creator_id=<?php echo $v['id']; ?>" class="px-3 py-2 bg-red-100 text-red-500 text-[10px] font-black rounded-lg hover:bg-red-500 hover:text-white transition">✗ Reject</a>
+                                </div>
+                            </div>
+                            <?php if ($v['id_upload'] || $v['letter_upload']): ?>
+                            <div class="flex gap-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex-wrap">
+                                <?php if ($v['id_upload']): ?>
+                                    <a href="/<?php echo ltrim(e($v['id_upload']), '/'); ?>" target="_blank"
+                                       class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-lg hover:bg-primary/20 transition">
+                                        📄 View Student ID
+                                    </a>
+                                <?php endif; ?>
+                                <?php if ($v['letter_upload']): ?>
+                                    <a href="/<?php echo ltrim(e($v['letter_upload']), '/'); ?>" target="_blank"
+                                       class="px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-lg hover:bg-primary/20 transition">
+                                        📄 View Admission Letter
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                            <?php else: ?>
+                            <p class="text-[10px] text-gray-400 italic pt-2 border-t border-gray-100 dark:border-gray-700">School email only — no documents uploaded.</p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+            <?php endif; ?>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Quick Actions -->
                 <section class="lg:col-span-2 p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
@@ -186,37 +235,6 @@ include '../includes/header.php';
                     </div>
                  </section>
 
-                 <!-- Verifications -->
-                 <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
-                    <h4 class="text-sm font-black uppercase tracking-widest text-gray-400 mb-6">Pending Verifications</h4>
-                    <div class="space-y-4">
-                        <?php foreach ($pending_verifs as $v): ?>
-                            <div class="p-5 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 flex flex-col gap-4">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <p class="text-sm font-bold text-gray-900 dark:text-white"><?php echo e($v["full_name"]); ?></p>
-                                        <p class="text-[10px] text-gray-500 font-medium"><?php echo e($v["school_email"]); ?></p>
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <a href="?action=verify&creator_id=<?php echo $v['id']; ?>" class="px-4 py-2 bg-green-500 text-white text-[10px] font-black rounded-lg hover:scale-105 transition shadow-lg shadow-green-500/20">Approve</a>
-                                        <a href="?action=reject&creator_id=<?php echo $v['id']; ?>" class="px-4 py-2 bg-red-100 text-red-500 text-[10px] font-black rounded-lg hover:bg-red-500 hover:text-white transition">Reject</a>
-                                    </div>
-                                </div>
-                                <div class="flex gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                                    <a href="<?php echo APP_URL . $v['id_upload']; ?>" target="_blank" class="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
-                                        View ID
-                                    </a>
-                                    <a href="<?php echo APP_URL . $v['letter_upload']; ?>" target="_blank" class="text-[10px] font-bold text-primary hover:underline flex items-center gap-1">
-                                        View Letter
-                                    </a>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                        <?php if (empty($pending_verifs)): ?>
-                             <p class="text-center text-xs text-gray-400 py-10 italic">No pending verifications.</p>
-                        <?php endif; ?>
-                    </div>
-                </section>
             </div>
         </main>
     </div>

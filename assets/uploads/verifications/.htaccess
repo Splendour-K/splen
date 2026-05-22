@@ -1,0 +1,16 @@
+Options -Indexes
+# Explicitly allow image and document files for admin verification review
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|pdf)$">
+        Require all granted
+    </FilesMatch>
+    <FilesMatch "\.(php|phtml|phar|cgi|pl|asp|aspx)$">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    <FilesMatch "\.(php|phtml|phar|cgi|pl|asp|aspx)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>

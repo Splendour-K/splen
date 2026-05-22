@@ -58,10 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$error) {
-        if ($school_email === '') {
-            $error = 'School email is required.';
-        } elseif (!$id_path || !$letter_path) {
-            $error = 'Please upload both required documents.';
+        // Require at least one proof: school email OR at least one document
+        if (!$school_email && !$id_path && !$letter_path) {
+            $error = 'Please provide your school email address or upload at least one verification document.';
         } elseif (!$verif) {
             $ins = $pdo->prepare("INSERT INTO creator_verifications (creator_id, school_email, id_upload, letter_upload, status) VALUES (?, ?, ?, ?, 'pending')");
             $ins->execute([$creator['id'], $school_email, $id_path, $letter_path]);
@@ -89,8 +88,8 @@ include '../includes/header.php';
             <header class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden">
                 <div aria-hidden="true" class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
                 <div class="relative">
-                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Student Verification</h2>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">Prove you are a student to start earning.</p>
+                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Get Your Verified Badge ✅</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mt-2">Earn a blue check badge on your profile by verifying your student status. This is optional — you can still apply to campaigns without it.</p>
                 </div>
             </header>
 
@@ -104,8 +103,8 @@ include '../includes/header.php';
                 <?php elseif ($creator['verification_status'] === 'verified'): ?>
                     <div class="p-12 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-[2rem] text-center shadow-sm">
                         <div class="w-20 h-20 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">✅</div>
-                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">You are Verified!</h3>
-                        <p class="text-gray-600 dark:text-gray-400">You now have full access to all campaigns and community features.</p>
+                        <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">You are Verified! ✅</h3>
+                        <p class="text-gray-600 dark:text-gray-400">You have earned your verified blue check badge. Brands can see you are a real student creator!</p>
                         <a href="<?php echo APP_URL; ?>creator/browse.php" class="mt-8 relative inline-flex h-12 items-center justify-center px-8 before:absolute before:inset-0 before:rounded-full before:bg-primary before:transition before:duration-300 hover:before:scale-105 active:duration-75 active:before:scale-95">
                             <span class="relative text-base font-semibold text-white">Browse Campaigns</span>
                         </a>
@@ -136,27 +135,38 @@ include '../includes/header.php';
                             </div>
                         <?php endif; ?>
 
+                        <div class="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-2xl text-sm text-primary font-medium">
+                            ✅ Submit <strong>at least one</strong> of the following: your school email address <strong>or</strong> an admission letter / student ID. You don't need all three.
+                        </div>
+
                         <form method="POST" enctype="multipart/form-data" class="space-y-6">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">School Email (.edu or campus mail)</label>
-                                <input type="email" name="school_email" value="<?php echo e($school_email); ?>" required placeholder="yourname@university.edu" class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition dark:text-white">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">School Email <span class="text-gray-400 font-normal">(optional if uploading a document)</span></label>
+                                <input type="email" name="school_email" value="<?php echo e($school_email); ?>" placeholder="yourname@university.edu" class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition dark:text-white">
+                                <p class="text-[10px] text-gray-500 mt-1">Your .edu or campus email address.</p>
+                            </div>
+
+                            <div class="relative flex items-center py-2">
+                                <div class="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
+                                <span class="flex-shrink mx-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Or Upload a Document</span>
+                                <div class="flex-grow border-t border-gray-200 dark:border-gray-700"></div>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-2">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Student ID</label>
-                                    <input type="file" name="id_file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer">
-                                    <p class="text-[10px] text-gray-500">Photo of your physical student card.</p>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Student ID <span class="text-gray-400 font-normal">(optional)</span></label>
+                                    <input type="file" name="id_file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer">
+                                    <p class="text-[10px] text-gray-500">Photo of your physical student card (JPG, PNG, PDF).</p>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Proof of Enrollment</label>
-                                    <input type="file" name="letter_file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer">
-                                    <p class="text-[10px] text-gray-500">Admission letter or fee receipt.</p>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Admission Letter <span class="text-gray-400 font-normal">(optional)</span></label>
+                                    <input type="file" name="letter_file" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all cursor-pointer">
+                                    <p class="text-[10px] text-gray-500">Admission letter or fee receipt (JPG, PNG, PDF).</p>
                                 </div>
                             </div>
 
                             <button type="submit" class="w-full py-5 bg-primary text-white font-black rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition active:scale-95">
-                                <?php echo $verif ? 'Resubmit Verification' : 'Submit for Verification'; ?>
+                                <?php echo $verif ? 'Resubmit for Badge' : 'Apply for Verified Badge'; ?>
                             </button>
                         </form>
                     </div>

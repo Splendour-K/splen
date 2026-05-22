@@ -21,9 +21,7 @@ if (!$contest) {
 $error = '';
 $success = '';
 
-if ($creator['verification_status'] !== 'verified') {
-    $error = "You must be verified to submit to contests. Complete your profile verification first.";
-}
+// Verification is optional — unverified creators can still submit
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
     $title = $_POST['title'] ?? '';
