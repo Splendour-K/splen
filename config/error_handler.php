@@ -28,6 +28,11 @@ register_shutdown_function(function() {
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
         // Log the fatal error
         error_log("Fatal Error: [{$error['type']}] {$error['message']} in {$error['file']} on line {$error['line']}");
+        @file_put_contents(
+            __DIR__ . '/../_error_log.txt',
+            date('[Y-m-d H:i:s]') . " Fatal [{$error['type']}]: {$error['message']}\n  File: {$error['file']}\n  Line: {$error['line']}\n\n",
+            FILE_APPEND
+        );
 
         // Send error response with fallback UI
         header('Content-Type: text/html; charset=UTF-8');
@@ -72,7 +77,16 @@ HTML;
 
 // Handler for uncaught exceptions
 set_exception_handler(function($exception) {
-    error_log("Uncaught Exception: " . $exception->getMessage() . " in " . $exception->getFile() . " on line " . $exception->getLine());
+    $msg = $exception->getMessage();
+    $file = $exception->getFile();
+    $line = $exception->getLine();
+    error_log("Uncaught Exception: $msg in $file on line $line");
+    // Write to a debug log the user can read via debug.php
+    @file_put_contents(
+        __DIR__ . '/../_error_log.txt',
+        date('[Y-m-d H:i:s]') . " Exception: $msg\n  File: $file\n  Line: $line\n\n",
+        FILE_APPEND
+    );
 
     header('Content-Type: text/html; charset=UTF-8');
     http_response_code(500);

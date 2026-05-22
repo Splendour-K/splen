@@ -1,132 +1,101 @@
 <?php
 // TEMPORARY DIAGNOSTIC FILE — DELETE AFTER USE
-// Access at: https://splennet.com/debug.php
-
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-echo '<style>body{font-family:monospace;padding:20px;background:#111;color:#0f0;} .ok{color:#0f0;} .err{color:#f55;} .warn{color:#ff0;} h2{color:#fff;border-bottom:1px solid #333;padding-bottom:5px;}</style>';
+echo '<style>body{font-family:monospace;padding:20px;background:#111;color:#0f0;} .ok{color:#0f0;} .err{color:#f55;} .warn{color:#ff0;} h2{color:#fff;border-bottom:1px solid #333;padding-bottom:5px;} pre{background:#1a1a1a;padding:10px;border-radius:4px;white-space:pre-wrap;word-break:break-all;}</style>';
 echo '<h1 style="color:#fff">Splennet Diagnostic</h1>';
 
-// 1. PHP Info
-echo '<h2>PHP</h2>';
-echo '<p>Version: <strong>' . phpversion() . '</strong>';
-echo PHP_VERSION_ID >= 80000 ? ' <span class="ok">[OK - 8.0+]</span>' : ' <span class="err">[FAIL - need 8.0+]</span>';
-echo '</p>';
+// ── 1. Error log captured from error_handler ──
+echo '<h2>Last Errors (from _error_log.txt)</h2>';
+$logFile = __DIR__ . '/_error_log.txt';
+if (file_exists($logFile)) {
+    $contents = file_get_contents($logFile);
+    echo '<pre class="err">' . htmlspecialchars($contents ?: '(empty)') . '</pre>';
+    echo '<p class="warn">← This is the EXACT error causing the Service Error page.</p>';
+} else {
+    echo '<p class="warn">No errors logged yet. Visit the brand dashboard first, then refresh this page.</p>';
+}
 
-// 2. .env loading
-echo '<h2>.env File</h2>';
+// ── 2. DB connection ──
+echo '<h2>Database</h2>';
 $envPath = __DIR__ . '/.env';
-if (file_exists($envPath) && is_readable($envPath)) {
-    echo '<p class="ok">.env found and readable.</p>';
-    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
+$envVars = [];
+if (file_exists($envPath)) {
+    foreach (file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
         $line = trim($line);
         if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) continue;
-        [$name] = explode('=', $line, 2);
-        $name = trim($name);
-        // Show key names but mask passwords
-        if (stripos($name, 'pass') !== false || stripos($name, 'secret') !== false) {
-            echo "<p>$name = <em>[hidden]</em></p>";
-        } else {
-            [$n, $v] = array_map('trim', explode('=', $line, 2));
-            echo "<p>$n = $v</p>";
+        [$n, $v] = array_map('trim', explode('=', $line, 2));
+        $envVars[$n] = trim($v, "\"'");
+    }
+}
+try {
+    $pdo = new PDO(
+        "mysql:host={$envVars['DB_HOST']};dbname={$envVars['DB_NAME']};charset=utf8mb4",
+        $envVars['DB_USER'], $envVars['DB_PASS'],
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
+    echo '<p class="ok">Connected to ' . $envVars['DB_NAME'] . '</p>';
+} catch (PDOException $e) {
+    die('<p class="err">DB FAILED: ' . $e->getMessage() . '</p>');
+}
+
+// ── 3. Find brand users ──
+echo '<h2>Brand Users in Database</h2>';
+$brands = $pdo->query("SELECT u.id as user_id, u.email, u.status, b.id as brand_id, b.brand_name FROM users u LEFT JOIN brands b ON b.user_id = u.id WHERE u.role = 'brand'")->fetchAll();
+if (empty($brands)) {
+    echo '<p class="warn">No brand users found in the database. Has a brand account been registered?</p>';
+} else {
+    foreach ($brands as $b) {
+        echo '<p class="ok">user_id=' . $b['user_id'] . ' | email=' . $b['email'] . ' | status=' . $b['status'] . ' | brand_id=' . ($b['brand_id'] ?? 'NULL — NO BRANDS RECORD!') . ' | brand_name=' . ($b['brand_name'] ?? 'NULL') . '</p>';
+    }
+}
+
+// ── 4. Simulate brand dashboard queries for first brand ──
+echo '<h2>Brand Dashboard Query Simulation</h2>';
+if (!empty($brands)) {
+    $testBrand = $brands[0];
+    $brand_id  = $testBrand['brand_id'];
+    echo '<p>Testing with brand_id=' . ($brand_id ?? 'NULL') . ' (user: ' . $testBrand['email'] . ')</p>';
+
+    $queries = [
+        'Active campaigns'     => "SELECT COUNT(*) FROM campaigns WHERE brand_id = ? AND status = 'published'",
+        'Pending applications' => "SELECT COUNT(*) FROM applications a JOIN campaigns c ON a.campaign_id = c.id WHERE c.brand_id = ? AND a.status = 'pending'",
+        'Jobs awaiting review' => "SELECT COUNT(*) FROM jobs WHERE brand_id = ? AND status IN ('awaiting_review','draft_submitted')",
+        'Total spent'          => "SELECT COALESCE(SUM(p.calculated_amount),0) FROM payments p JOIN jobs j ON p.job_id = j.id WHERE j.brand_id = ? AND p.status = 'completed'",
+        'Creators hired'       => "SELECT COUNT(DISTINCT creator_id) FROM jobs WHERE brand_id = ? AND status IN ('approved','completed','in_progress')",
+        'subscription_tier'    => "SELECT subscription_tier FROM brands WHERE id = ?",
+        'site_settings'        => "SELECT setting_key, setting_value FROM site_settings LIMIT 5",
+        'Recent applications'  => "SELECT a.id FROM applications a JOIN campaigns c ON a.campaign_id = c.id JOIN creators cr ON a.creator_id = cr.id WHERE c.brand_id = ? ORDER BY a.created_at DESC LIMIT 5",
+        'Recent chats'         => "SELECT c.id FROM conversations c JOIN creators cr ON c.creator_id = cr.id WHERE c.brand_id = ? ORDER BY c.updated_at DESC LIMIT 3",
+        'UGC orders count'     => "SELECT COUNT(*) FROM ugc_orders WHERE brand_id = ? AND status = 'published'",
+        'UGC pending subs'     => "SELECT COUNT(*) FROM ugc_order_submissions us JOIN ugc_orders uo ON us.ugc_order_id = uo.id WHERE uo.brand_id = ? AND us.status = 'submitted'",
+        'Contests live'        => "SELECT COUNT(*) FROM contests WHERE brand_id = ? AND status = 'live'",
+        'Contest pending subs' => "SELECT COUNT(*) FROM contest_submissions cs JOIN contests c ON cs.contest_id = c.id WHERE c.brand_id = ? AND cs.status = 'submitted'",
+    ];
+
+    foreach ($queries as $label => $sql) {
+        try {
+            // site_settings doesn't need a bind param
+            if ($label === 'site_settings') {
+                $r = $pdo->query($sql)->fetchAll();
+            } else {
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([$brand_id]);
+                $r = $stmt->fetchAll();
+            }
+            echo '<p class="ok">✓ ' . $label . ' — OK (' . count($r) . ' row(s))</p>';
+        } catch (Throwable $e) {
+            echo '<p class="err">✗ ' . $label . ' — FAILED: ' . $e->getMessage() . '</p>';
         }
     }
 } else {
-    echo '<p class="err">.env NOT FOUND at: ' . $envPath . '</p>';
-    echo '<p class="err">Upload your .env file to the website root (same folder as index.php).</p>';
+    echo '<p class="warn">No brand users to test with. Register a brand account first.</p>';
 }
 
-// 3. Database connection
-echo '<h2>Database Connection</h2>';
-$envVars = [];
-if (file_exists($envPath)) {
-    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) continue;
-        [$name, $value] = array_map('trim', explode('=', $line, 2));
-        $value = trim($value, "\"'");
-        $envVars[$name] = $value;
-    }
-}
-
-$host    = $envVars['DB_HOST']    ?? 'localhost';
-$db      = $envVars['DB_NAME']    ?? '';
-$user    = $envVars['DB_USER']    ?? '';
-$pass    = $envVars['DB_PASS']    ?? '';
-$charset = $envVars['DB_CHARSET'] ?? 'utf8mb4';
-
-echo "<p>Host: $host | DB: $db | User: $user</p>";
-
-try {
-    $pdo = new PDO(
-        "mysql:host=$host;dbname=$db;charset=$charset",
-        $user, $pass,
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-    echo '<p class="ok">Database connected successfully!</p>';
-
-    // 4. Table check
-    echo '<h2>Tables in Database</h2>';
-    $required = [
-        'users', 'brands', 'creators', 'creator_verifications',
-        'campaigns', 'applications', 'jobs', 'submissions',
-        'conversations', 'messages', 'notifications', 'payments',
-        'reviews', 'support_tickets', 'revision_requests',
-        'site_settings', 'activity_logs', 'usage_stats',
-        'contests', 'contest_submissions', 'contest_rewards',
-        'ugc_orders', 'ugc_order_submissions', 'disputes',
-    ];
-    $stmt = $pdo->query("SHOW TABLES");
-    $existing = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    foreach ($required as $t) {
-        $found = in_array($t, $existing);
-        echo '<p ' . ($found ? 'class="ok"' : 'class="err"') . '>' . ($found ? '✓' : '✗') . " $t</p>";
-    }
-
-    // 5. Critical column check
-    echo '<h2>Critical Columns</h2>';
-    $checks = [
-        ['users', 'status'],
-        ['brands', 'subscription_tier'],
-        ['creators', 'sample_video_link'],
-        ['campaigns', 'is_featured'],
-    ];
-    foreach ($checks as [$table, $col]) {
-        try {
-            $r = $pdo->query("SELECT `$col` FROM `$table` LIMIT 0");
-            echo '<p class="ok">✓ ' . $table . '.' . $col . '</p>';
-        } catch (Exception $e) {
-            echo '<p class="err">✗ ' . $table . '.' . $col . ' — MISSING</p>';
-        }
-    }
-
-    // 6. site_settings seed data
-    echo '<h2>Site Settings</h2>';
-    try {
-        $r = $pdo->query("SELECT setting_key, setting_value FROM site_settings");
-        $rows = $r->fetchAll();
-        if (empty($rows)) {
-            echo '<p class="warn">site_settings table is empty — seed data missing.</p>';
-        } else {
-            foreach ($rows as $row) {
-                echo '<p class="ok">✓ ' . $row['setting_key'] . ' = ' . $row['setting_value'] . '</p>';
-            }
-        }
-    } catch (Exception $e) {
-        echo '<p class="err">site_settings query failed: ' . $e->getMessage() . '</p>';
-    }
-
-} catch (PDOException $e) {
-    echo '<p class="err">CONNECTION FAILED: ' . $e->getMessage() . '</p>';
-}
-
-// 7. Session test
-echo '<h2>Session</h2>';
+// ── 5. Session ──
+echo '<h2>Current Session</h2>';
 if (session_status() === PHP_SESSION_NONE) session_start();
-echo '<p>Session ID: ' . session_id() . '</p>';
-echo '<p>Session data: <pre>' . print_r($_SESSION, true) . '</pre></p>';
+echo '<pre>' . htmlspecialchars(print_r($_SESSION, true)) . '</pre>';
 
-echo '<hr><p style="color:#666">Delete this file (debug.php) once done diagnosing.</p>';
+echo '<hr><p style="color:#555">Delete debug.php and _error_log.txt from Hostinger File Manager once done.</p>';
