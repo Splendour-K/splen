@@ -6,6 +6,7 @@ require_role('brand');
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $brand = $stmt->fetch();
+require_brand_record($brand);
 
 $filter_status = $_GET['status'] ?? '';
 $sql = "

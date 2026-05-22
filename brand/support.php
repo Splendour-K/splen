@@ -9,6 +9,7 @@ $error = '';
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $brand = $stmt->fetch();
+require_brand_record($brand);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $subject = trim($_POST['subject'] ?? '');

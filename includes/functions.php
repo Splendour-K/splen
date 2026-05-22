@@ -113,6 +113,17 @@ function e($text) {
     return htmlspecialchars($text, ENT_QUOTES, "UTF-8");
 }
 
+function require_brand_record($brand, $redirect = true) {
+    if ($brand !== false && is_array($brand) && !empty($brand['id'])) {
+        return true;
+    }
+    if ($redirect) {
+        header("Location: " . APP_URL . "brand/profile.php?setup=1");
+        exit();
+    }
+    return false;
+}
+
 function require_role($role) {
     global $pdo;
     if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== $role) {
@@ -234,10 +245,9 @@ function check_brand_quota($brand_id) {
     $limit_key = ($tier === "basic") ? "basic_monthly_limit" : "pro_monthly_limit";
     $limit = (int)get_setting($limit_key, 3);
     
-    // Count campaigns created this month
-    $month = date("Y-m");
-    $stmt_count = $pdo->prepare("SELECT COUNT(*) FROM campaigns WHERE brand_id = ? AND DATE_FORMAT(created_at, '%Y-%m') = ?");
-    $stmt_count->execute([$brand_id, $month]);
+    // Count campaigns created this month (integer comparisons avoid collation issues)
+    $stmt_count = $pdo->prepare("SELECT COUNT(*) FROM campaigns WHERE brand_id = ? AND YEAR(created_at) = YEAR(NOW()) AND MONTH(created_at) = MONTH(NOW())");
+    $stmt_count->execute([$brand_id]);
     $current_usage = (int)$stmt_count->fetchColumn();
     
     return [

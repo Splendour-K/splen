@@ -8,6 +8,7 @@ $ugc_order_id = $_GET['order_id'] ?? 0;
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $brand = $stmt->fetch();
+require_brand_record($brand);
 
 $stmt = $pdo->prepare("SELECT * FROM ugc_orders WHERE id = ? AND brand_id = ?");
 $stmt->execute([$ugc_order_id, $brand['id']]);
