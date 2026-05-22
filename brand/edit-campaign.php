@@ -38,8 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($stmt->execute([$title, $product_name, $category, $video_type, $video_length, $budget, $currency, $deadline, $main_message, $words_to_say, $usage_rights, $status, $id])) {
         $success = "Campaign updated successfully!";
-        // Refresh data
-        $stmt->execute([$title, $product_name, $category, $video_type, $video_length, $budget, $deadline, $main_message, $words_to_say, $usage_rights, $status, $id]);
         $stmt_reload = $pdo->prepare("SELECT * FROM campaigns WHERE id = ?");
         $stmt_reload->execute([$id]);
         $campaign = $stmt_reload->fetch();
