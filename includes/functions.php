@@ -434,6 +434,13 @@ function format_money($amount, $currency) {
 }
 
 /**
+ * Alias of format_money() for backward compatibility.
+ */
+function format_currency($amount, $currency) {
+    return format_money($amount, $currency);
+}
+
+/**
  * Detect if FFmpeg is on the server's PATH. Cached per request.
  */
 function ffmpeg_available() {
@@ -720,14 +727,7 @@ function get_contest_rewards($contest_id) {
 function can_creator_submit_contest($creator_id, $contest_id) {
     global $pdo;
 
-    // Check creator verification
-    $stmt = $pdo->prepare("SELECT verification_status FROM creators WHERE id = ?");
-    $stmt->execute([$creator_id]);
-    $verification = $stmt->fetchColumn();
-
-    if ($verification !== 'verified') {
-        return ['can_submit' => false, 'reason' => 'not_verified'];
-    }
+    // Verification is optional — unverified creators can still submit
 
     // Check contest deadline
     $stmt = $pdo->prepare("SELECT submission_deadline FROM contests WHERE id = ?");
@@ -759,14 +759,7 @@ function can_creator_submit_contest($creator_id, $contest_id) {
 function can_creator_submit_ugc($creator_id, $ugc_order_id) {
     global $pdo;
 
-    // Check creator verification
-    $stmt = $pdo->prepare("SELECT verification_status FROM creators WHERE id = ?");
-    $stmt->execute([$creator_id]);
-    $verification = $stmt->fetchColumn();
-
-    if ($verification !== 'verified') {
-        return ['can_submit' => false, 'reason' => 'not_verified'];
-    }
+    // Verification is optional — unverified creators can still submit
 
     // Check UGC order deadline
     $stmt = $pdo->prepare("SELECT deadline FROM ugc_orders WHERE id = ?");

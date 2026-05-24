@@ -96,6 +96,9 @@ include 'includes/header.php';
                         </div>
 
                         <div class="flex flex-col gap-3 flex-shrink-0">
+                            <a href="<?php echo APP_URL; ?>contest-detail.php?id=<?php echo $contest['id']; ?>" class="px-6 py-3 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-center hover:border-secondary hover:text-secondary transition text-sm">
+                                View Details
+                            </a>
                             <?php if ($logged_in && isset($creator)): ?>
                                 <a href="<?php echo APP_URL; ?>creator/submit-to-contest.php?contest_id=<?php echo $contest['id']; ?>" class="px-6 py-3 bg-secondary text-white font-bold rounded-xl text-center hover:scale-105 transition">
                                     Submit Now

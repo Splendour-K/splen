@@ -100,10 +100,15 @@ include '../includes/header.php';
                 <?php foreach ($submissions as $submission): ?>
                     <div class="p-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                         <div class="flex flex-col lg:flex-row gap-6">
-                            <!-- Thumbnail -->
+                            <!-- Video Thumbnail -->
                             <div class="w-full lg:w-48 h-40 rounded-xl overflow-hidden bg-gray-200 dark:bg-gray-800 flex-shrink-0">
-                                <?php if ($submission['watermarked_preview_file']): ?>
-                                    <img src="<?php echo e($submission['watermarked_preview_file']); ?>" alt="Preview" class="w-full h-full object-cover">
+                                <?php
+                                    $preview_src = $submission['watermarked_preview_file'] ?? ($submission['video_file'] ?? null);
+                                ?>
+                                <?php if ($preview_src): ?>
+                                    <video class="w-full h-full object-cover" controls preload="metadata" playsinline controlsList="nodownload">
+                                        <source src="<?php echo APP_URL . ltrim(e($preview_src), '/'); ?>" type="video/mp4">
+                                    </video>
                                 <?php else: ?>
                                     <div class="w-full h-full flex items-center justify-center text-gray-400 text-4xl">🎬</div>
                                 <?php endif; ?>

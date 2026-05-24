@@ -24,10 +24,14 @@ $success = '';
 // Verification is optional — unverified creators can still submit
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
-    $title = $_POST['title'] ?? '';
-    $description = $_POST['description'] ?? '';
+    $post_title        = trim($_POST['title']             ?? '');
+    $post_description  = trim($_POST['description']       ?? '');
+    $posted_video_link = trim($_POST['posted_video_link'] ?? '');
+    $platform          = trim($_POST['platform']          ?? '');
+    $creator_views     = (int)($_POST['view_count']       ?? 0);
+    $creator_engage    = (int)($_POST['engagement_count'] ?? 0);
 
-    if (!$title) {
+    if (!$post_title) {
         $error = "Submission title is required.";
     } else if (strtotime($contest['submission_deadline']) <= time()) {
         $error = "This contest is no longer accepting submissions.";
@@ -52,20 +56,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
             $filepath = $upload_dir . $filename;
 
             if (move_uploaded_file($video_file['tmp_name'], $filepath)) {
-                // Real watermarked preview for the brand. Clean file stays locked until winner selection.
+                // Generate watermarked preview. Clean file stays locked until winner selection.
                 $wm_filename = 'wm_' . $filename;
                 $wm_filepath = $upload_dir . $wm_filename;
                 @set_time_limit(180);
                 generate_video_watermark($filepath, $wm_filepath);
 
-                $clean_rel = '/uploads/contest_submissions/' . $filename;
-                $wm_rel    = file_exists($wm_filepath) ? '/uploads/contest_submissions/' . $wm_filename : $clean_rel;
-                $submission_note = trim($title . "\n\n" . $description);
+                $clean_rel       = '/uploads/contest_submissions/' . $filename;
+                $wm_rel          = file_exists($wm_filepath) ? '/uploads/contest_submissions/' . $wm_filename : $clean_rel;
+                $submission_note = trim($post_title . "\n\n" . $post_description);
 
                 $sql = "INSERT INTO contest_submissions (
                     contest_id, creator_id, video_file,
-                    watermarked_preview_file, clean_video_file, submission_note, status
-                ) VALUES (?, ?, ?, ?, ?, ?, 'submitted')";
+                    watermarked_preview_file, clean_video_file,
+                    submission_note, posted_video_link, platform,
+                    view_count, engagement_count, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted')";
 
                 $stmt = $pdo->prepare($sql);
                 try {
@@ -74,10 +80,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$error) {
                         $clean_rel,
                         $wm_rel,
                         $clean_rel,
-                        $submission_note
+                        $submission_note,
+                        $posted_video_link ?: null,
+                        $platform ?: null,
+                        $creator_views,
+                        $creator_engage,
                     ]);
 
                     $submission_id = $pdo->lastInsertId();
+
+                    // Try to save title/description as separate columns (requires fix_contests_v2.sql)
+                    try {
+                        $pdo->prepare("UPDATE contest_submissions SET title = ?, description = ? WHERE id = ?")
+                            ->execute([$post_title, $post_description ?: null, $submission_id]);
+                    } catch (Exception $col_e) { /* columns not yet migrated — harmless */ }
+
                     $success = "Your submission has been received! Waiting for review...";
 
                     $stmt = $pdo->prepare("SELECT * FROM brands WHERE id = ?");
@@ -215,7 +232,51 @@ include '../includes/header.php';
                     </div>
 
                     <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                        <p class="text-xs text-blue-700 dark:text-blue-400"><strong>Note:</strong> Submissions must be uploaded files — no external links. Brands review a watermarked preview before winner selection.</p>
+                        <p class="text-xs text-blue-700 dark:text-blue-400"><strong>Note:</strong> Upload your video file. Brands review a watermarked preview before winner selection — your original stays locked.</p>
+                    </div>
+                </section>
+
+                <!-- Section 3: Posted Video Stats (optional) -->
+                <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-lg bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center justify-center font-black text-sm">3</span>
+                        Already Posted? Add Stats
+                        <span class="text-xs font-medium text-gray-400 ml-1">(Optional)</span>
+                    </h3>
+                    <p class="text-sm text-gray-500">If you've already posted this content on social media, enter the details below. This helps the brand verify your reach and may unlock CPM earnings.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Posted Video URL</label>
+                            <input type="url" name="posted_video_link" placeholder="https://www.tiktok.com/@yourhandle/video/..." class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                            <p class="text-xs text-gray-400 mt-1">TikTok, Instagram, YouTube, Twitter/X link</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Platform</label>
+                            <select name="platform" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                                <option value="">Select Platform</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="instagram">Instagram Reels</option>
+                                <option value="youtube">YouTube Shorts</option>
+                                <option value="twitter">Twitter/X</option>
+                                <option value="facebook">Facebook</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Current View Count</label>
+                            <input type="number" name="view_count" min="0" placeholder="0" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Engagement Count <span class="font-normal text-gray-400">(likes + comments)</span></label>
+                            <input type="number" name="engagement_count" min="0" placeholder="0" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                        <p class="text-xs text-red-700 dark:text-red-400 font-medium">
+                            ⚠️ <strong>Fake engagement warning:</strong> Artificially inflating views or engagement (buying views, using bots, coordinated sharing rings) will result in immediate disqualification and a permanent ban from the platform. Brands verify all reported metrics.
+                        </p>
                     </div>
                 </section>
 

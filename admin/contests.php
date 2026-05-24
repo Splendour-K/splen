@@ -81,7 +81,7 @@ include '../includes/header.php';
 
                                 <div class="text-xs text-gray-500 font-bold mt-2">
                                     Deadline: <strong><?php echo date('M d, Y', strtotime($contest['submission_deadline'])); ?></strong>
-                                    | Budget: <strong><?php echo format_currency($contest['total_contest_budget'], $contest['currency']); ?></strong>
+                                    | Budget: <strong><?php echo format_money((float)$contest['total_contest_budget'], $contest['currency']); ?></strong>
                                 </div>
                             </div>
 

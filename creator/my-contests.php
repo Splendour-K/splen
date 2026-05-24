@@ -8,6 +8,35 @@ $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
 require_creator_record($creator);
 
+// Handle stat update submission
+$update_success = $update_error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_stats') {
+    $sub_id      = (int)($_POST['submission_id'] ?? 0);
+    $link        = trim($_POST['posted_video_link'] ?? '');
+    $plat        = trim($_POST['platform'] ?? '');
+    $views       = (int)($_POST['view_count'] ?? 0);
+    $engage      = (int)($_POST['engagement_count'] ?? 0);
+
+    if ($sub_id > 0) {
+        // Verify this submission belongs to this creator
+        $check = $pdo->prepare("SELECT id FROM contest_submissions WHERE id = ? AND creator_id = ?");
+        $check->execute([$sub_id, $creator['id']]);
+        if ($check->fetchColumn()) {
+            try {
+                $pdo->prepare("UPDATE contest_submissions SET posted_video_link = ?, platform = ?, view_count = ?, engagement_count = ? WHERE id = ?")
+                    ->execute([$link ?: null, $plat ?: null, $views, $engage, $sub_id]);
+                $update_success = 'Stats updated!';
+            } catch (Exception $e) {
+                $update_error = 'Could not update stats: ' . $e->getMessage();
+            }
+        } else {
+            $update_error = 'Submission not found.';
+        }
+    }
+    header('Location: my-contests.php?tab=active&updated=1');
+    exit();
+}
+
 $tab = $_GET['tab'] ?? 'active';
 
 if ($tab === 'results') {
@@ -53,10 +82,16 @@ include '../includes/header.php';
                 </div>
             </header>
 
+            <?php if (!empty($_GET['updated'])): ?>
+            <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl text-green-800 dark:text-green-400 text-sm font-bold">
+                ✓ Stats updated successfully!
+            </div>
+            <?php endif; ?>
+
             <div class="flex flex-wrap gap-2">
                 <a href="?tab=active" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $tab === 'active' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">My Entries</a>
                 <a href="?tab=results" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $tab === 'results' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">Wins & Shortlists</a>
-                <a href="<?php echo APP_URL; ?>contests.php" class="px-4 py-2 rounded-xl font-bold text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800">Browse Contests →</a>
+                <a href="<?php echo APP_URL; ?>contest-board.php" class="px-4 py-2 rounded-xl font-bold text-sm bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800">Browse Contests →</a>
             </div>
 
             <?php
@@ -155,7 +190,57 @@ include '../includes/header.php';
                                             <p class="text-xs font-bold text-blue-700 dark:text-blue-400">⏳ Awaiting review</p>
                                         </div>
                                     <?php endif; ?>
+
+                                    <!-- Current stats -->
+                                    <?php if ($submission['view_count'] > 0 || $submission['posted_video_link']): ?>
+                                    <div class="mt-3 flex flex-wrap gap-3 text-xs">
+                                        <?php if ($submission['view_count'] > 0): ?>
+                                        <span class="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded font-bold text-gray-700 dark:text-gray-300">👁 <?php echo number_format($submission['view_count']); ?> views</span>
+                                        <?php endif; ?>
+                                        <?php if ($submission['engagement_count'] > 0): ?>
+                                        <span class="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded font-bold text-gray-700 dark:text-gray-300">💬 <?php echo number_format($submission['engagement_count']); ?> eng.</span>
+                                        <?php endif; ?>
+                                        <?php if ($submission['posted_video_link']): ?>
+                                        <a href="<?php echo e($submission['posted_video_link']); ?>" target="_blank" rel="noopener" class="px-2 py-1 bg-secondary/10 text-secondary rounded font-bold">🔗 Posted</a>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
+                            </div>
+
+                            <!-- Update Stats form (collapsible) -->
+                            <div class="border-t border-gray-100 dark:border-gray-800 pt-4 mt-2">
+                                <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-xs font-bold text-secondary hover:underline">
+                                    📊 Update Posted Stats
+                                </button>
+                                <form method="POST" class="hidden mt-3 space-y-3">
+                                    <input type="hidden" name="action" value="update_stats">
+                                    <input type="hidden" name="submission_id" value="<?php echo (int)$submission['id']; ?>">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div class="md:col-span-2">
+                                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Posted Video URL</label>
+                                            <input type="url" name="posted_video_link" value="<?php echo e($submission['posted_video_link'] ?? ''); ?>" placeholder="https://tiktok.com/..." class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-secondary">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Platform</label>
+                                            <select name="platform" class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-secondary">
+                                                <option value="">Select</option>
+                                                <?php foreach (['tiktok'=>'TikTok','instagram'=>'Instagram','youtube'=>'YouTube','twitter'=>'Twitter/X','facebook'=>'Facebook','other'=>'Other'] as $val=>$lbl): ?>
+                                                <option value="<?php echo $val; ?>" <?php echo ($submission['platform'] ?? '') === $val ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Views</label>
+                                            <input type="number" name="view_count" min="0" value="<?php echo (int)($submission['view_count'] ?? 0); ?>" class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-secondary">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Engagement</label>
+                                            <input type="number" name="engagement_count" min="0" value="<?php echo (int)($submission['engagement_count'] ?? 0); ?>" class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:border-secondary">
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="px-4 py-2 bg-secondary text-white font-bold text-xs rounded-lg hover:scale-105 transition">Save Stats</button>
+                                </form>
                             </div>
                         </div>
                     <?php endforeach; ?>

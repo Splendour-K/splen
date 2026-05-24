@@ -21,6 +21,10 @@ $submission_deadline      = $_POST['submission_deadline']      ?? '';
 $winner_announcement_date = $_POST['winner_announcement_date'] ?? '';
 $number_of_winners        = $_POST['number_of_winners']        ?? 1;
 $terms_conditions         = $_POST['terms_conditions']         ?? '';
+// CPM fields (optional)
+$cpm_enabled              = isset($_POST['cpm_enabled']);
+$pay_per_1000_views_raw   = $_POST['pay_per_1000_views']       ?? '';
+$max_payable_views_raw    = $_POST['max_payable_views']        ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $budget_num = (float)$total_contest_budget_raw;
@@ -49,6 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $submission_deadline, $winner_announcement_date, $winners_num, $terms_conditions
                 ]);
                 $contest_id = $pdo->lastInsertId();
+
+                // Save optional CPM fields (graceful — only works after fix_contests_v2.sql is run)
+                if ($cpm_enabled) {
+                    $cpm_rate  = (float)$pay_per_1000_views_raw;
+                    $cpm_cap   = (int)$max_payable_views_raw ?: null;
+                    if ($cpm_rate > 0) {
+                        try {
+                            $pdo->prepare("UPDATE contests SET pay_per_1000_views = ?, max_payable_views_per_creator = ? WHERE id = ?")
+                                ->execute([$cpm_rate, $cpm_cap, $contest_id]);
+                        } catch (Exception $cpm_e) { /* CPM columns not yet migrated — run fix_contests_v2.sql */ }
+                    }
+                }
 
                 $per_winner = $budget_num / $winners_num;
                 for ($i = 1; $i <= $winners_num; $i++) {
@@ -228,6 +244,39 @@ include '../includes/header.php';
                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Contest Rules</label>
                         <textarea name="terms_conditions" rows="5" maxlength="4000" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary" placeholder="List contest rules and requirements..."><?php echo e($terms_conditions); ?></textarea>
                         <p class="text-xs text-gray-500 mt-1">Optional. Up to 4,000 characters.</p>
+                    </div>
+                </section>
+
+                <!-- Section 5: CPM (Optional) -->
+                <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center font-black text-sm">5</span>
+                        CPM Bonus Pay
+                        <span class="text-xs font-medium text-gray-400">(Optional)</span>
+                    </h3>
+                    <p class="text-sm text-gray-500">Pay creators per 1,000 verified views on their posted content — on top of the fixed prize. Leave unchecked to skip.</p>
+
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" name="cpm_enabled" id="cpm-toggle" <?php echo $cpm_enabled ? 'checked' : ''; ?> class="w-5 h-5 rounded text-secondary" onchange="document.getElementById('cpm-fields').classList.toggle('hidden', !this.checked)">
+                        <span class="font-bold text-gray-800 dark:text-gray-200 text-sm">Enable CPM payouts for this contest</span>
+                    </label>
+
+                    <div id="cpm-fields" class="space-y-4 <?php echo $cpm_enabled ? '' : 'hidden'; ?>">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Pay per 1,000 Views</label>
+                                <input type="number" name="pay_per_1000_views" step="0.01" min="0" placeholder="e.g. 100" value="<?php echo e($pay_per_1000_views_raw); ?>" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                                <p class="text-xs text-gray-400 mt-1">Amount in <?php echo e($currency); ?> per 1,000 verified views</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Max Payable Views per Creator</label>
+                                <input type="number" name="max_payable_views" min="0" placeholder="e.g. 500000" value="<?php echo e($max_payable_views_raw); ?>" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                                <p class="text-xs text-gray-400 mt-1">Leave blank for no cap</p>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl">
+                            <p class="text-xs text-indigo-700 dark:text-indigo-400">💡 CPM is paid in addition to fixed prizes. You approve each creator's view count before payment is issued.</p>
+                        </div>
                     </div>
                 </section>
 

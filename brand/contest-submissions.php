@@ -86,6 +86,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $pdo->commit();
                 $success = 'Winner selected and payment created.';
                 log_activity($_SESSION['user_id'], 'Contest Winner Selected', 'Contest: ' . $contest['title'] . ', Position: ' . $winner_position);
+
+                // Notify the winner
+                try {
+                    $stmt_cu = $pdo->prepare("SELECT user_id FROM creators WHERE id = ?");
+                    $stmt_cu->execute([$creator_id]);
+                    $winner_user_id = $stmt_cu->fetchColumn();
+                    if ($winner_user_id) {
+                        create_notification_batch(
+                            [$winner_user_id],
+                            '🏆 You won a contest!',
+                            'Congratulations! You\'ve been selected as a winner in "' . $contest['title'] . '". Check your results!',
+                            'contest',
+                            'creator/my-contests.php?tab=results',
+                            'contest',
+                            $contest_id
+                        );
+                    }
+                } catch (Exception $notif_e) { /* non-critical */ }
             } catch (Exception $e) {
                 $pdo->rollBack();
                 $error = 'Error selecting winner: ' . $e->getMessage();
@@ -210,7 +228,7 @@ include '../includes/header.php';
                                     <div class="flex items-center gap-3 mb-2">
                                         <img src="<?php echo e($sub['profile_photo'] ?? '/images/default-avatar.png'); ?>" alt="<?php echo e($sub['creator_name']); ?>" class="w-10 h-10 rounded-full object-cover">
                                         <div>
-                                            <p class="font-bold text-gray-900 dark:text-white"><?php echo e($sub['creator_name']); ?></p>
+                                            <p class="font-bold text-gray-900 dark:text-white"><?php echo e($sub['full_name'] ?? $sub['creator_name'] ?? 'Creator'); ?></p>
                                             <p class="text-xs text-gray-500"><?php echo e($sub['school']); ?></p>
                                         </div>
                                     </div>
@@ -230,7 +248,7 @@ include '../includes/header.php';
                                     </div>
                                     <div>
                                         <p class="text-[10px] font-bold text-gray-400 uppercase">Submitted</p>
-                                        <p class="text-lg font-black text-gray-900 dark:text-white"><?php echo time_ago($sub['submitted_at']); ?></p>
+                                        <p class="text-lg font-black text-gray-900 dark:text-white"><?php echo time_ago($sub['submitted_at'] ?: $sub['created_at']); ?></p>
                                     </div>
                                 </div>
 
