@@ -149,7 +149,13 @@ include 'includes/header.php';
                     $urgency = ($days_left <= 2) ? 'text-red-500' : 'text-gray-500';
                     $prize_formatted = format_money((float)$contest['total_contest_budget'], $contest['currency']);
                 ?>
-                <div class="group p-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl hover:border-secondary/30 transition-all duration-300 flex flex-col gap-5">
+                <div class="group bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl hover:border-secondary/30 transition-all duration-300 flex flex-col overflow-hidden">
+                    <?php if (!empty($contest['featured_image'])): ?>
+                    <div class="w-full overflow-hidden flex-shrink-0" style="aspect-ratio:16/7">
+                        <img src="<?php echo APP_URL . e($contest['featured_image']); ?>" alt="<?php echo e($contest['title']); ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    </div>
+                    <?php endif; ?>
+                    <div class="p-6 flex flex-col gap-5 flex-1">
                     <!-- Top badges -->
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="px-3 py-1.5 bg-secondary/10 text-secondary rounded-full text-[10px] font-black uppercase tracking-wider">💰 <?php echo $prize_formatted; ?> Prize Pool</span>
@@ -165,9 +171,10 @@ include 'includes/header.php';
                         <p class="text-sm font-medium text-gray-500 mt-1">by <?php echo e($contest['company_name']); ?></p>
                     </div>
 
-                    <!-- Description preview -->
+                    <!-- Description preview (HTML stripped for plain-text card) -->
                     <?php if (!empty($contest['description'])): ?>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2"><?php echo e(mb_substr($contest['description'], 0, 160)) . (mb_strlen($contest['description']) > 160 ? '…' : ''); ?></p>
+                    <?php $desc_plain = strip_tags($contest['description']); ?>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2"><?php echo e(mb_substr($desc_plain, 0, 160)) . (mb_strlen($desc_plain) > 160 ? '…' : ''); ?></p>
                     <?php endif; ?>
 
                     <!-- Deadline & CTA -->
@@ -197,6 +204,7 @@ include 'includes/header.php';
                             <?php endif; ?>
                         </div>
                     </div>
+                    </div><!-- /p-6 -->
                 </div>
                 <?php endforeach; ?>
             </div>

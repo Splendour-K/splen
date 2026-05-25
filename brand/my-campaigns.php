@@ -110,7 +110,7 @@ include '../includes/header.php';
                                         <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest"><?php echo date('M d, Y', strtotime($camp['created_at'])); ?></span>
                                     </div>
                                     <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2"><?php echo e($camp['title']); ?></h3>
-                                    <p class="text-gray-500 text-sm line-clamp-2 mb-6"><?php echo e($camp['main_message']); ?></p>
+                                    <p class="text-gray-500 text-sm line-clamp-2 mb-6"><?php echo e(mb_substr(strip_tags($camp['main_message'] ?? ''), 0, 200)); ?></p>
                                     
                                     <div class="flex flex-wrap gap-6">
                                         <div class="flex items-center gap-2">

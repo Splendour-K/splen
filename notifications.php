@@ -26,6 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'mark_
     exit();
 }
 
+// Auto-mark all notifications as read when the page is opened
+// (badge resets to 0; new notifications will increment it again)
+$pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0")->execute([$user_id]);
+invalidate_notifications_cache($user_id);
+
 // Fetch Notifications
 $stmt = $pdo->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50");
 $stmt->execute([$user_id]);
@@ -48,9 +53,7 @@ include 'includes/header.php';
                     <h2 class="text-3xl font-black text-gray-900 dark:text-white">Inbox</h2>
                     <p class="text-gray-500 font-bold mt-1">Stay updated with your campaign activity.</p>
                 </div>
-                <?php if (!empty($notifications)): ?>
-                    <a href="?mark_read=1" class="px-6 py-3 bg-gray-50 dark:bg-gray-800 text-gray-500 font-black rounded-xl text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all">Mark all as read</a>
-                <?php endif; ?>
+                <span class="px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-[10px] font-black rounded-xl uppercase tracking-widest">✓ All caught up</span>
             </header>
 
             <div class="space-y-4" id="notifications-list">

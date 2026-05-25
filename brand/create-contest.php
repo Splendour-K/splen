@@ -22,11 +22,20 @@ $submission_deadline      = $_POST['submission_deadline']      ?? '';
 $winner_announcement_date = $_POST['winner_announcement_date'] ?? '';
 $number_of_winners        = $_POST['number_of_winners']        ?? 1;
 $terms_conditions         = $_POST['terms_conditions']         ?? '';
+// Prize distribution (manual)
+$prize_amounts_raw        = array_map('floatval', $_POST['prize_amounts']   ?? []);
+$position_names_raw       = array_map('trim',     $_POST['position_names']  ?? []);
 // CPM fields (optional)
 $cpm_enabled              = isset($_POST['cpm_enabled']);
 $pay_per_1000_views_raw   = $_POST['pay_per_1000_views']       ?? '';
 $max_payable_views_raw    = $_POST['max_payable_views']        ?? '';
 $reference_links_raw      = array_values(array_filter(array_map('trim', $_POST['reference_links'] ?? [])));
+
+// Derive total budget from prize sum (JS sets hidden field, but also calculate server-side for safety)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($prize_amounts_raw)) {
+    $total_contest_budget_raw = array_sum($prize_amounts_raw);
+    $number_of_winners = count(array_filter($prize_amounts_raw, fn($a) => $a > 0));
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $budget_num = (float)$total_contest_budget_raw;
@@ -119,23 +128,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $brand['id'], $required_budget, 'contest_reserve', 'contest', (int)$contest_id, $reserve_desc
                     );
 
-                    $per_winner = $budget_num / $winners_num;
-                    for ($i = 1; $i <= $winners_num; $i++) {
-                        if ($i === 1) {
-                            $position = "Grand Prize";
-                            $amount = $per_winner * 1.5;
-                        } else if ($i === 2 && $winners_num >= 2) {
-                            $position = "2nd Place";
-                            $amount = $per_winner;
-                        } else if ($i === 3 && $winners_num >= 3) {
-                            $position = "3rd Place";
-                            $amount = $per_winner * 0.75;
-                        } else {
-                            $position = "Position " . $i;
-                            $amount = $per_winner;
+                    // Save individual prize amounts entered by the brand
+                    $rew_stmt = $pdo->prepare("INSERT INTO contest_rewards (contest_id, position_number, position_name, reward_amount, currency) VALUES (?, ?, ?, ?, ?)");
+                    foreach ($prize_amounts_raw as $pi => $amt) {
+                        if ($amt <= 0) continue;
+                        $pos_num  = $pi + 1;
+                        $pos_name = $position_names_raw[$pi] ?? '';
+                        if ($pos_name === '') {
+                            $default_names = ['1st Place','2nd Place','3rd Place','4th Place','5th Place'];
+                            $pos_name = $default_names[$pi] ?? ('Position ' . $pos_num);
                         }
-                        $stmt = $pdo->prepare("INSERT INTO contest_rewards (contest_id, position_number, position_name, reward_amount, currency) VALUES (?, ?, ?, ?, ?)");
-                        $stmt->execute([$contest_id, $i, $position, $amount, $currency]);
+                        $rew_stmt->execute([$contest_id, $pos_num, $pos_name, $amt, $currency]);
                     }
 
                     // Notify all creators of the new contest
@@ -277,15 +280,14 @@ include '../includes/header.php';
                 <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                         <span class="w-8 h-8 rounded-lg bg-secondary text-white flex items-center justify-center font-black text-sm">2</span>
-                        Budget & Prizes
+                        Prize Distribution
                     </h3>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Total Budget <span class="text-red-500">*</span></label>
-                            <input type="number" name="total_contest_budget" id="f-amount" data-required value="<?php echo e($total_contest_budget_raw); ?>" step="0.01" min="0" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary" placeholder="0.00">
-                            <p class="text-xs text-gray-500 mt-1">Required. Minimum <span id="min-display"><?php echo number_format($min_for_current); ?></span> <span id="ccy-display"><?php echo e($currency); ?></span>. This is the total prize pool.</p>
-                            <p class="text-xs text-red-500 font-medium mt-1 hidden" data-error-for="f-amount"></p>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Number of Winners <span class="text-red-500">*</span></label>
+                            <input type="number" name="number_of_winners" id="f-winners" value="<?php echo max(1, (int)$number_of_winners); ?>" min="1" max="100" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                            <p class="text-xs text-gray-500 mt-1">Determines the number of prize positions below.</p>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Currency</label>
@@ -297,10 +299,24 @@ include '../includes/header.php';
                         </div>
                     </div>
 
+                    <!-- Dynamic Prize Rows -->
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Number of Winners <span class="text-red-500">*</span></label>
-                        <input type="number" name="number_of_winners" id="f-winners" value="<?php echo (int)$number_of_winners ?: 1; ?>" min="1" max="500" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
-                        <p class="text-xs text-gray-500 mt-1">Enter any number. Budget splits evenly; Grand Prize gets 1.5×, 3rd Place gets 0.75×, rest split equally.</p>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Prize Amounts per Position <span class="text-red-500">*</span></label>
+                        <p class="text-xs text-gray-500 mb-3">Enter the exact prize for each winner. You can rename the position labels (e.g., "Grand Prize", "Runner-Up").</p>
+                        <div id="prize-rows-container" class="space-y-3">
+                            <!-- Generated dynamically by JS below -->
+                        </div>
+                        <!-- Total summary -->
+                        <div class="mt-4 p-4 bg-secondary/5 border border-secondary/20 rounded-xl flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-bold text-gray-700 dark:text-gray-300">Total Prize Pool</p>
+                                <p class="text-xs text-gray-500 mt-0.5">Min. <span id="min-display"><?php echo number_format($min_for_current); ?></span> <span id="ccy-display"><?php echo e($currency); ?></span> · deducted from your wallet on launch</p>
+                            </div>
+                            <p class="text-xl font-black text-secondary" id="prize-total-display">0.00</p>
+                        </div>
+                        <!-- Hidden field populated by JS — read by PHP backend -->
+                        <input type="hidden" name="total_contest_budget" id="f-amount">
+                        <p class="text-xs text-red-500 font-medium mt-2 hidden" data-error-for="f-amount"></p>
                     </div>
                 </section>
 
@@ -443,6 +459,49 @@ include '../includes/header.php';
                 row.querySelector('input').focus();
             }
 
+            /* ── Prize Distribution Helpers ── */
+            const CCY_SYMBOLS = <?php echo json_encode(array_map('get_currency_symbol', array_combine(["USD","NGN","GHS","EUR","GBP"],["USD","NGN","GHS","EUR","GBP"]))); ?>;
+            const PRIZE_DEFAULTS = <?php echo json_encode(array_values($prize_amounts_raw)); ?>;
+            const NAME_DEFAULTS  = <?php echo json_encode(array_values($position_names_raw)); ?>;
+            const ICONS = ['🥇','🥈','🥉','🏅','🏅','🏅','🏅','🏅','🏅','🏅'];
+            const POS_NAMES = ['1st Place','2nd Place','3rd Place','4th Place','5th Place','6th Place','7th Place','8th Place','9th Place','10th Place'];
+
+            function calcPrizeTotal() {
+                const inputs = document.querySelectorAll('.prize-amount-input');
+                let total = 0;
+                inputs.forEach(inp => total += parseFloat(inp.value) || 0);
+                document.getElementById('f-amount').value = total.toFixed(2);
+                const ccy = document.getElementById('f-currency').value;
+                const sym = CCY_SYMBOLS[ccy] || (ccy + ' ');
+                document.getElementById('prize-total-display').textContent = sym + total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                if (typeof validateAll === 'function') validateAll(false);
+            }
+
+            function generatePrizeRows(count) {
+                count = Math.max(1, Math.min(100, parseInt(count) || 1));
+                const container = document.getElementById('prize-rows-container');
+                const ccy = document.getElementById('f-currency').value;
+                container.innerHTML = '';
+                for (let i = 0; i < count; i++) {
+                    const icon     = ICONS[i] || '🏅';
+                    const defName  = NAME_DEFAULTS[i] || POS_NAMES[i] || ('Position ' + (i+1));
+                    const defAmt   = PRIZE_DEFAULTS[i] || '';
+                    const row = document.createElement('div');
+                    row.className = 'flex gap-3 items-center';
+                    row.innerHTML = `
+                        <div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl flex-shrink-0">${icon}</div>
+                        <input type="text" name="position_names[]" value="${defName}" placeholder="Position name"
+                            class="w-36 px-3 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary text-sm font-bold">
+                        <input type="number" name="prize_amounts[]" step="0.01" min="0.01" value="${defAmt}" placeholder="0.00"
+                            class="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary font-bold text-lg prize-amount-input"
+                            oninput="calcPrizeTotal()">
+                        <span class="text-sm font-bold text-gray-500 flex-shrink-0 ccy-lbl">${ccy}</span>
+                    `;
+                    container.appendChild(row);
+                }
+                calcPrizeTotal();
+            }
+
             (function() {
                 const MIN_BY_CCY = <?php echo json_encode(minimum_payments()); ?>;
                 const form = document.getElementById('contest-form');
@@ -450,6 +509,7 @@ include '../includes/header.php';
                 const f_title = document.getElementById('f-title');
                 const f_amount = document.getElementById('f-amount');
                 const f_currency = document.getElementById('f-currency');
+                const f_winners = document.getElementById('f-winners');
                 const f_deadline = document.getElementById('f-deadline');
                 const f_winner_date = document.getElementById('f-winner-date');
                 const minDisplay = document.getElementById('min-display');
@@ -466,7 +526,7 @@ include '../includes/header.php';
                     }
                 }
 
-                function validateAll(showAll) {
+                window.validateAll = function(showAll) {
                     let ok = true;
                     const reasons = {};
 
@@ -474,15 +534,27 @@ include '../includes/header.php';
                         reasons.title = 'Title must be at least 3 characters.';
                         ok = false;
                     }
-                    const amount = parseFloat(f_amount.value);
+
+                    calcPrizeTotal();
+                    const amount = parseFloat(f_amount.value) || 0;
                     const minRequired = MIN_BY_CCY[f_currency.value] ?? 5;
-                    if (isNaN(amount) || amount <= 0) {
-                        reasons.amount = 'Enter a total budget.';
+                    if (amount <= 0) {
+                        reasons.amount = 'Enter prize amounts for each position.';
                         ok = false;
                     } else if (amount < minRequired) {
-                        reasons.amount = `Minimum is ${minRequired.toLocaleString()} ${f_currency.value}.`;
+                        reasons.amount = `Total must be at least ${minRequired.toLocaleString()} ${f_currency.value}.`;
                         ok = false;
+                    } else {
+                        // Ensure every prize row has a positive amount
+                        const prizeInputs = document.querySelectorAll('.prize-amount-input');
+                        let allFilled = true;
+                        prizeInputs.forEach(inp => { if (!(parseFloat(inp.value) > 0)) allFilled = false; });
+                        if (!allFilled) {
+                            reasons.amount = 'Every prize position must have an amount greater than 0.';
+                            ok = false;
+                        }
                     }
+
                     if (!f_deadline.value) {
                         reasons.deadline = 'Pick a submission deadline.';
                         ok = false;
@@ -503,34 +575,42 @@ include '../includes/header.php';
                     }
 
                     setError(f_title,       (showAll || f_title.dataset.touched)       ? (reasons.title       || '') : '');
-                    setError(f_amount,      (showAll || f_amount.dataset.touched)      ? (reasons.amount      || '') : '');
+                    setError(f_amount,      showAll                                     ? (reasons.amount      || '') : '');
                     setError(f_deadline,    (showAll || f_deadline.dataset.touched)    ? (reasons.deadline    || '') : '');
                     setError(f_winner_date, (showAll || f_winner_date.dataset.touched) ? (reasons.winner_date || '') : '');
 
                     submitBtn.disabled = !ok;
                     return ok;
-                }
+                };
 
                 function updateMinHint() {
                     const ccy = f_currency.value;
                     const min = MIN_BY_CCY[ccy] ?? 5;
                     minDisplay.textContent = min.toLocaleString();
                     ccyDisplay.textContent = ccy;
+                    // Update all currency labels in prize rows
+                    document.querySelectorAll('.ccy-lbl').forEach(el => el.textContent = ccy);
+                    calcPrizeTotal();
                 }
 
-                [f_title, f_amount, f_deadline, f_winner_date].forEach(el => {
+                f_winners.addEventListener('change', () => { generatePrizeRows(f_winners.value); });
+                f_winners.addEventListener('input',  () => { generatePrizeRows(f_winners.value); });
+
+                [f_title, f_deadline, f_winner_date].forEach(el => {
                     el.addEventListener('input', () => { el.dataset.touched = '1'; validateAll(false); });
                     el.addEventListener('blur',  () => { el.dataset.touched = '1'; validateAll(false); });
                 });
                 f_currency.addEventListener('change', () => { updateMinHint(); validateAll(false); });
 
                 form.addEventListener('submit', (e) => {
-                    // Sync rich editor content to hidden inputs before submission
+                    calcPrizeTotal(); // belt-and-suspenders: ensure total is synced
                     if (window._qlDesc)  document.getElementById('description_h').value      = window._qlDesc.root.innerHTML;
                     if (window._qlTerms) document.getElementById('terms_conditions_h').value = window._qlTerms.root.innerHTML;
                     if (!validateAll(true)) { e.preventDefault(); }
                 });
 
+                // Initialise prize rows on first load
+                generatePrizeRows(f_winners.value);
                 validateAll(false);
                 updateMinHint();
             })();

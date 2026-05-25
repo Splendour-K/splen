@@ -7,7 +7,7 @@ if (!$contest_id) { header('Location: ' . APP_URL . 'contest-board.php'); exit()
 
 // Fetch contest + brand
 $stmt = $pdo->prepare("
-    SELECT c.*, b.brand_name AS company_name, b.logo_url AS brand_logo
+    SELECT c.*, b.brand_name AS company_name
     FROM contests c
     JOIN brands b ON c.brand_id = b.id
     WHERE c.id = ?
