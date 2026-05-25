@@ -131,15 +131,17 @@ include '../includes/header.php';
                 <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-200 dark:border-gray-800 shadow-sm space-y-6">
                     <!-- Brand Identity -->
                     <div class="flex items-center gap-6 mb-8 pb-8 border-b border-gray-100 dark:border-gray-800">
-                        <div class="w-24 h-24 rounded-3xl bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden relative group">
+                        <label class="w-24 h-24 rounded-3xl bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center overflow-hidden relative group cursor-pointer" title="Click to upload logo">
                             <?php if ($brand['logo']): ?>
-                                <img src="<?php echo APP_URL . $brand['logo']; ?>" class="w-full h-full object-cover">
+                                <img src="<?php echo APP_URL . $brand['logo']; ?>" class="w-full h-full object-cover" alt="Brand logo">
                             <?php else: ?>
-                                <span class="text-gray-400 text-xs text-center p-2">No Logo</span>
+                                <svg class="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9"/>
+                                </svg>
                             <?php endif; ?>
-                            <input type="file" name="logo" class="absolute inset-0 opacity-0 cursor-pointer">
-                            <div class="absolute inset-0 bg-black/50 text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">Change</div>
-                        </div>
+                            <input type="file" name="logo" accept="image/jpeg,image/png,image/webp,image/gif" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                            <div class="absolute inset-0 bg-black/50 text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none">📷 Change</div>
+                        </label>
                         <div>
                             <h3 class="text-lg font-bold text-gray-900 dark:text-white"><?php echo e($brand['brand_name']); ?></h3>
                             <p class="text-sm text-gray-500">Upload your brand logo (PNG, JPG, max 2MB)</p>

@@ -18,15 +18,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ig = $_POST['instagram_handle'];
     $niche = $_POST['main_niche'];
 
-    $upd = $pdo->prepare("UPDATE creators SET full_name = ?, bio = ?, tiktok_handle = ?, instagram_handle = ?, main_niche = ? WHERE user_id = ?");
-    try {
-        $upd->execute([$full_name, $bio, $tiktok, $ig, $niche, $_SESSION['user_id']]);
-        $success = "Profile updated successfully!";
-        // Refresh data
-        $stmt->execute([$_SESSION['user_id']]);
-        $creator = $stmt->fetch();
-    } catch (Exception $e) {
-        $error = "Error updating profile: " . $e->getMessage();
+    // Handle optional profile photo upload
+    $photo_path = $creator['profile_photo'] ?? null;
+    if (!empty($_FILES['profile_photo']['name']) && $_FILES['profile_photo']['error'] === UPLOAD_ERR_OK) {
+        $target_dir = "../assets/uploads/profiles/";
+        if (!file_exists($target_dir)) mkdir($target_dir, 0755, true);
+
+        $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        $file_ext = strtolower(pathinfo($_FILES['profile_photo']['name'], PATHINFO_EXTENSION));
+        $file_size = $_FILES['profile_photo']['size'];
+
+        if (!in_array($file_ext, $allowed_ext)) {
+            $error = "Profile photo must be a JPG, PNG, WEBP, or GIF image.";
+        } elseif ($file_size > 2 * 1024 * 1024) {
+            $error = "Profile photo must be under 2 MB.";
+        } else {
+            $new_filename = "creator_" . $creator['id'] . "_" . time() . "." . $file_ext;
+            $target_file  = $target_dir . $new_filename;
+            if (move_uploaded_file($_FILES['profile_photo']['tmp_name'], $target_file)) {
+                $photo_path = "assets/uploads/profiles/" . $new_filename;
+            }
+        }
+    }
+
+    if (!$error) {
+        $upd = $pdo->prepare("UPDATE creators SET full_name = ?, bio = ?, tiktok_handle = ?, instagram_handle = ?, main_niche = ?, profile_photo = ? WHERE user_id = ?");
+        try {
+            $upd->execute([$full_name, $bio, $tiktok, $ig, $niche, $photo_path, $_SESSION['user_id']]);
+            $success = "Profile updated successfully!";
+            // Refresh data
+            $stmt->execute([$_SESSION['user_id']]);
+            $creator = $stmt->fetch();
+        } catch (Exception $e) {
+            $error = "Error updating profile: " . $e->getMessage();
+        }
     }
 }
 
@@ -60,14 +85,38 @@ include '../includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" class="space-y-8">
+            <form method="POST" enctype="multipart/form-data" class="space-y-8">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <section class="p-8 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
                             <span class="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3 text-sm">👤</span>
                             Basic Information
                         </h3>
-                        
+
+                        <!-- Profile Photo Upload -->
+                        <div class="flex items-center gap-5 pb-6 mb-2 border-b border-gray-100 dark:border-gray-800">
+                            <label class="relative w-20 h-20 rounded-full bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 overflow-hidden group cursor-pointer flex-shrink-0" title="Click to upload profile photo">
+                                <?php if (!empty($creator['profile_photo'])): ?>
+                                    <img src="<?php echo APP_URL . e($creator['profile_photo']); ?>" alt="Profile photo" class="w-full h-full object-cover">
+                                <?php else: ?>
+                                    <div class="w-full h-full flex items-center justify-center">
+                                        <svg class="w-9 h-9 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                                        </svg>
+                                    </div>
+                                <?php endif; ?>
+                                <input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp,image/gif" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                                <div class="absolute inset-0 bg-black/55 text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full pointer-events-none">
+                                    📷 Change
+                                </div>
+                            </label>
+                            <div>
+                                <p class="font-bold text-gray-900 dark:text-white text-sm"><?php echo e($creator['full_name'] ?: 'Your Name'); ?></p>
+                                <p class="text-xs text-gray-500 mt-1">Upload a profile photo (JPG, PNG · max 2 MB)</p>
+                                <p class="text-xs text-gray-400 mt-0.5">Optional — not required</p>
+                            </div>
+                        </div>
+
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Full Name</label>
                             <input type="text" name="full_name" value="<?php echo e($creator['full_name']); ?>" required class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-gray-900 rounded-2xl transition-all outline-none font-medium text-gray-900 dark:text-white">

@@ -109,6 +109,32 @@
             font-weight: 500;
         }
 
+        /* ── Floating Sticky Navigation ── */
+        #nav {
+            position: fixed !important;
+            top: 0; left: 0; right: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            transition: background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        .dark #nav {
+            background: rgba(3, 7, 18, 0.82);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        #nav.nav-scrolled {
+            background: rgba(255, 255, 255, 0.96) !important;
+            box-shadow: 0 4px 28px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04) !important;
+            border-bottom: 1px solid rgba(0,0,0,0.07) !important;
+        }
+        .dark #nav.nav-scrolled {
+            background: rgba(3, 7, 18, 0.97) !important;
+            box-shadow: 0 4px 28px rgba(0,0,0,0.45) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+        }
+
         /* ── Notification Toasts ── */
         #splt-toast-container {
             position: fixed; top: 5rem; right: 1.25rem;
@@ -141,7 +167,7 @@
 <body class="bg-white dark:bg-gray-950">
 <div id="splt-toast-container" aria-live="polite" aria-label="Notifications"></div>
     <header>
-        <nav id="nav" class="absolute group z-10 w-full border-b border-black/5 dark:border-white/5 lg:border-transparent">
+        <nav id="nav" class="group w-full">
             <div class="max-w-7xl mx-auto px-6 md:px-12">
                 <div class="relative flex flex-wrap items-center justify-between gap-6 py-3 md:gap-0 md:py-4">
                     <div class="relative z-20 flex w-full justify-between md:px-0 lg:w-fit">
@@ -229,6 +255,20 @@
                 toggleNavlinks();
             });
         });
+
+        /* ── Floating nav: add shadow on scroll ── */
+        (function() {
+            var nav = document.getElementById('nav');
+            function onScroll() {
+                if (window.scrollY > 18) {
+                    nav.classList.add('nav-scrolled');
+                } else {
+                    nav.classList.remove('nav-scrolled');
+                }
+            }
+            window.addEventListener('scroll', onScroll, { passive: true });
+            onScroll(); // apply immediately in case page is already scrolled
+        })();
     </script>
     <script>
         window.APP_URL = <?php echo json_encode(APP_URL); ?>;

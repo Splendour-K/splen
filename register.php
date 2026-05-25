@@ -9,6 +9,9 @@ if (is_logged_in()) {
 $error = '';
 $role = isset($_GET['role']) ? $_GET['role'] : 'creator';
 
+// Valid brand invite code — change this value to invalidate old codes
+define('BRAND_INVITE_CODE', '450272');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'];
     $password = $_POST['password'];
@@ -17,7 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($password !== $confirm_password) {
         $error = "Passwords do not match.";
-    } else {
+    } elseif ($role === 'brand') {
+        // Validate invite code for brand registration
+        $invite_code = trim($_POST['invite_code'] ?? '');
+        if ($invite_code !== BRAND_INVITE_CODE) {
+            $error = "Invalid invite code. Please contact founders@splennet.com to receive a free invite code, or register as a Creator instead since Creator accounts are free.";
+        }
+    }
+
+    if (!$error) {
         // Check if email exists
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
         $stmt->execute([$email]);
@@ -109,6 +120,15 @@ include 'includes/header.php';
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Contact Person</label>
                         <input type="text" name="contact_person" placeholder="Jane Smith" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Invite Code <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="invite_code" placeholder="Enter your invite code" maxlength="20" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition font-mono tracking-widest" value="<?php echo e($_POST['invite_code'] ?? ''); ?>">
+                        <p class="text-xs text-gray-500 mt-1.5">
+                            Don't have an invite code? <a href="mailto:founders@splennet.com" class="text-primary font-semibold hover:underline">Contact founders@splennet.com</a> or <button type="button" onclick="document.getElementById('role-selector').value='creator';toggleFields();" class="text-primary font-semibold hover:underline">register as a Creator instead (free)</button>.
+                        </p>
+                    </div>
                 </div>
 
                 <div>
@@ -144,7 +164,7 @@ function toggleFields() {
     const role = document.getElementById('role-selector').value;
     const creatorFields = document.getElementById('creator-fields');
     const brandFields = document.getElementById('brand-fields');
-    
+
     if (role === 'brand') {
         brandFields.style.display = 'block';
         creatorFields.style.display = 'none';

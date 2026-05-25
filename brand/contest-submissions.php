@@ -34,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         )
     ");
 
+    // Note: mark_winner is handled exclusively by admins.
+    // Brands can shortlist, record view counts, and disqualify only.
     if ($action === 'shortlist') {
         $stmt = $pdo->prepare("UPDATE contest_submissions SET status = 'shortlisted' WHERE id = ? AND contest_id = ?");
         if ($stmt->execute([$submission_id, $contest_id])) {
@@ -45,105 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($stmt->execute([$submission_id, $contest_id])) {
             $success = 'Submission removed from shortlist.';
         }
-    } elseif ($action === 'mark_winner') {
-        $winner_position = (int)($_POST['winner_position'] ?? 0);
-        $approved_views = (int)($_POST['approved_views'] ?? 0);
-
-        if ($winner_position <= 0) {
-            $error = 'Invalid winner position.';
-        } else {
-            $pdo->beginTransaction();
-            try {
-                // Update submission status
-                $stmt = $pdo->prepare("UPDATE contest_submissions SET status = 'winner', approved_views = ? WHERE id = ? AND contest_id = ?");
-                $stmt->execute([$approved_views, $submission_id, $contest_id]);
-
-                // Get reward amount for this position
-                $stmt_reward = $pdo->prepare("SELECT reward_amount, currency FROM contest_rewards WHERE contest_id = ? AND position_number = ?");
-                $stmt_reward->execute([$contest_id, $winner_position]);
-                $reward = $stmt_reward->fetch();
-
-                if ($reward) {
-                    // Create payment for contest reward
-                    $stmt_payment = $pdo->prepare("
-                        SELECT creator_id FROM contest_submissions WHERE id = ?
-                    ");
-                    $stmt_payment->execute([$submission_id]);
-                    $creator_id = $stmt_payment->fetchColumn();
-
-                    $stmt_create_payment = $pdo->prepare("
-                        INSERT INTO payments (creator_id, amount, currency, status, payment_type, contest_submission_id)
-                        VALUES (?, ?, ?, 'pending', 'contest_reward', ?)
-                    ");
-                    $stmt_create_payment->execute([
-                        $creator_id,
-                        $reward['reward_amount'],
-                        $reward['currency'],
-                        $submission_id
-                    ]);
-                }
-
-                $pdo->commit();
-                $success = 'Winner selected and payment created.';
-                log_activity($_SESSION['user_id'], 'Contest Winner Selected', 'Contest: ' . $contest['title'] . ', Position: ' . $winner_position);
-
-                // Notify the winner
-                try {
-                    $stmt_cu = $pdo->prepare("SELECT user_id FROM creators WHERE id = ?");
-                    $stmt_cu->execute([$creator_id]);
-                    $winner_user_id = $stmt_cu->fetchColumn();
-                    if ($winner_user_id) {
-                        create_notification_batch(
-                            [$winner_user_id],
-                            '🏆 You won a contest!',
-                            'Congratulations! You\'ve been selected as a winner in "' . $contest['title'] . '". Check your results!',
-                            'contest',
-                            'creator/my-contests.php?tab=results',
-                            'contest',
-                            $contest_id
-                        );
-                    }
-                } catch (Exception $notif_e) { /* non-critical */ }
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                $error = 'Error selecting winner: ' . $e->getMessage();
-            }
-        }
     } elseif ($action === 'approve_views') {
+        // Brand verifies creator's reported view count; stored for admin to use when releasing payment
         $approved_views = (int)($_POST['approved_views'] ?? 0);
-
-        $pdo->beginTransaction();
-        try {
-            $stmt = $pdo->prepare("UPDATE contest_submissions SET approved_views = ? WHERE id = ? AND contest_id = ?");
-            $stmt->execute([$approved_views, $submission_id, $contest_id]);
-
-            // If CPM budget exists, calculate and create CPM payment
-            if ($contest['cpm_budget'] > 0 && $contest['pay_per_1000_views'] > 0) {
-                $cpm_payment = calculate_cpm_payment($approved_views, $contest['pay_per_1000_views'], $contest['max_payable_views_per_creator']);
-
-                if ($cpm_payment > 0) {
-                    $stmt_creator = $pdo->prepare("SELECT creator_id FROM contest_submissions WHERE id = ?");
-                    $stmt_creator->execute([$submission_id]);
-                    $creator_id = $stmt_creator->fetchColumn();
-
-                    $stmt_payment = $pdo->prepare("
-                        INSERT INTO payments (creator_id, amount, currency, status, payment_type, contest_submission_id)
-                        VALUES (?, ?, ?, 'pending', 'contest_cpm', ?)
-                    ");
-                    $stmt_payment->execute([
-                        $creator_id,
-                        $cpm_payment,
-                        $contest['currency'],
-                        $submission_id
-                    ]);
-                }
-            }
-
-            $pdo->commit();
-            $success = 'Views approved and payment calculated.';
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error = 'Error approving views: ' . $e->getMessage();
+        $stmt = $pdo->prepare("UPDATE contest_submissions SET approved_views = ? WHERE id = ? AND contest_id = ?");
+        if ($stmt->execute([$approved_views, $submission_id, $contest_id])) {
+            $success = 'View count recorded. Admin will release payment after final approval.';
         }
     } elseif ($action === 'disqualify') {
         $stmt = $pdo->prepare("UPDATE contest_submissions SET status = 'disqualified' WHERE id = ? AND contest_id = ?");
@@ -272,24 +181,12 @@ include '../includes/header.php';
                                             </button>
                                         <?php else: ?>
                                             <button type="submit" name="action" value="unshortlist" class="w-full px-4 py-2 bg-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-400 transition">
-                                                ☆ Remove
+                                                ☆ Remove from Shortlist
                                             </button>
                                         <?php endif; ?>
 
-                                        <!-- Winner Selection -->
                                         <div class="border-t border-gray-200 dark:border-gray-700 pt-2">
-                                            <select name="winner_position" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                                                <option value="">Select Winner Position...</option>
-                                                <?php foreach ($rewards as $reward): ?>
-                                                    <option value="<?php echo $reward['position_number']; ?>">
-                                                        <?php echo e($reward['position_name']); ?> - <?php echo e($contest['currency']); ?> <?php echo number_format($reward['reward_amount']); ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                            <input type="hidden" name="approved_views" value="<?php echo $sub['view_count']; ?>">
-                                            <button type="submit" name="action" value="mark_winner" class="w-full mt-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition">
-                                                🏆 Mark as Winner
-                                            </button>
+                                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-2">Winner selection is handled by admins</p>
                                         </div>
 
                                         <button type="submit" name="action" value="disqualify" class="w-full px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-sm font-bold rounded-xl hover:bg-red-200 dark:hover:bg-red-900/50 transition">
