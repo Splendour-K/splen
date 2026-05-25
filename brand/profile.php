@@ -25,21 +25,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Handle Logo Upload
     $logo_path = $brand['logo'];
-    if (!empty($_FILES['logo']['name'])) {
+    if (!empty($_FILES['logo']['name']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
         $target_dir = "../assets/uploads/profiles/";
-        if (!file_exists($target_dir)) mkdir($target_dir, 0755, true);
-        
+        if (!is_dir($target_dir)) mkdir($target_dir, 0755, true);
+
         $allowed_ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-        $file_ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
+        $file_ext    = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
+        $file_size   = $_FILES['logo']['size'];
+
         if (!in_array($file_ext, $allowed_ext)) {
             $error = "Logo must be a JPG, PNG, WEBP, or GIF image.";
+        } elseif ($file_size > 2 * 1024 * 1024) {
+            $error = "Logo must be under 2 MB.";
+        } else {
+            $new_filename = "brand_" . ($brand['id'] ?? 'new') . "_" . time() . "." . $file_ext;
+            $target_file  = $target_dir . $new_filename;
+            if (move_uploaded_file($_FILES['logo']['tmp_name'], $target_file)) {
+                $logo_path = "assets/uploads/profiles/" . $new_filename;
+            } else {
+                $error = "Could not save logo — the uploads folder may not be writable. Please try again or contact support.";
+            }
         }
-        $new_filename = "brand_" . $brand['id'] . "_" . time() . "." . $file_ext;
-        $target_file = $target_dir . $new_filename;
-
-        if (!$error && move_uploaded_file($_FILES["logo"]["tmp_name"], $target_file)) {
-            $logo_path = "assets/uploads/profiles/" . $new_filename;
-        }
+    } elseif (!empty($_FILES['logo']['name']) && $_FILES['logo']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $upload_codes = [
+            UPLOAD_ERR_INI_SIZE   => 'File exceeds the server upload limit.',
+            UPLOAD_ERR_FORM_SIZE  => 'File exceeds the form size limit.',
+            UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder on server.',
+            UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
+        ];
+        $error = $upload_codes[$_FILES['logo']['error']] ?? 'Upload failed (code ' . $_FILES['logo']['error'] . '). File may be too large (max 2 MB).';
     }
 
     try {

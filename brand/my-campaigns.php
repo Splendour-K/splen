@@ -96,7 +96,13 @@ include '../includes/header.php';
             <?php else: ?>
                 <div class="grid grid-cols-1 gap-6">
                     <?php foreach ($campaigns as $camp): ?>
-                        <div class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-none transition-all duration-500 overflow-hidden group">
+                        <div class="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-none transition-all duration-500 overflow-hidden group">
+                            <?php if (!empty($camp['featured_image'])): ?>
+                                <div class="w-full h-44 overflow-hidden">
+                                    <img src="<?php echo APP_URL . e($camp['featured_image']); ?>" alt="<?php echo e($camp['title']); ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                </div>
+                            <?php endif; ?>
+                            <div class="p-8">
                             <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                 <div class="flex-1">
                                     <div class="flex items-center gap-3 mb-4">
@@ -139,6 +145,7 @@ include '../includes/header.php';
                                     </div>
                                 </div>
                             </div>
+                            </div><!-- /p-8 -->
                         </div>
                     <?php endforeach; ?>
                 </div>

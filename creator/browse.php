@@ -100,7 +100,13 @@ include "../includes/header.php";
                     </div>
                 <?php else: ?>
                     <?php foreach ($campaigns as $camp): ?>
-                        <div class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-200 dark:border-gray-800 shadow-sm transition hover:shadow-xl group flex flex-col <?php echo $camp['is_featured'] ? 'ring-2 ring-orange-500 ring-offset-4 dark:ring-offset-gray-950' : ''; ?>">
+                        <div class="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-200 dark:border-gray-800 shadow-sm transition hover:shadow-xl group flex flex-col overflow-hidden <?php echo $camp['is_featured'] ? 'ring-2 ring-orange-500 ring-offset-4 dark:ring-offset-gray-950' : ''; ?>">
+                            <?php if (!empty($camp['featured_image'])): ?>
+                                <div class="w-full overflow-hidden" style="aspect-ratio:16/7">
+                                    <img src="<?php echo APP_URL . e($camp['featured_image']); ?>" alt="<?php echo e($camp['title']); ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                </div>
+                            <?php endif; ?>
+                            <div class="p-8 flex flex-col flex-1">
                             <div class="flex justify-between items-start mb-6">
                                 <div>
                                     <div class="flex items-center gap-2 mb-2">
@@ -127,6 +133,7 @@ include "../includes/header.php";
                                     </span>
                                 <?php endif; ?>
                             </div>
+                            </div><!-- /p-8 inner -->
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>

@@ -79,7 +79,13 @@ include '../includes/header.php';
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <!-- Left: Brief Details -->
                 <div class="lg:col-span-2 space-y-8">
-                    <section class="p-8 md:p-12 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <section class="bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                        <?php if (!empty($camp['featured_image'])): ?>
+                            <div class="w-full overflow-hidden" style="aspect-ratio:16/6">
+                                <img src="<?php echo APP_URL . e($camp['featured_image']); ?>" alt="<?php echo e($camp['title']); ?>" class="w-full h-full object-cover">
+                            </div>
+                        <?php endif; ?>
+                        <div class="p-8 md:p-12">
                         <header class="mb-10">
                             <span class="px-4 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-widest"><?php echo e($camp['category']); ?></span>
                             <h1 class="text-4xl md:text-5xl font-black text-gray-900 dark:text-white mt-6"><?php echo e($camp['title']); ?></h1>
@@ -133,6 +139,7 @@ include '../includes/header.php';
                                 </div>
                             </div>
                         </div>
+                        </div><!-- /p-8 md:p-12 inner -->
                     </section>
                 </div>
 

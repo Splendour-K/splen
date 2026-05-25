@@ -69,6 +69,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                     $contest_id = $pdo->lastInsertId();
 
+                    // Save featured image (optional — requires fix_featured_images.sql)
+                    if (!empty($_FILES['featured_image']['name']) && $_FILES['featured_image']['error'] === UPLOAD_ERR_OK) {
+                        $fi_dir  = "../assets/uploads/listings/";
+                        if (!is_dir($fi_dir)) mkdir($fi_dir, 0755, true);
+                        $fi_ext  = strtolower(pathinfo($_FILES['featured_image']['name'], PATHINFO_EXTENSION));
+                        $fi_size = $_FILES['featured_image']['size'];
+                        if (in_array($fi_ext, ['jpg','jpeg','png','webp']) && $fi_size <= 5 * 1024 * 1024) {
+                            $fi_name = "contest_{$contest_id}_" . time() . ".{$fi_ext}";
+                            if (move_uploaded_file($_FILES['featured_image']['tmp_name'], $fi_dir . $fi_name)) {
+                                try {
+                                    $pdo->prepare("UPDATE contests SET featured_image = ? WHERE id = ?")
+                                        ->execute(["assets/uploads/listings/{$fi_name}", $contest_id]);
+                                } catch (\Exception $fi_e) {
+                                    error_log("featured_image (contests) update failed (run fix_featured_images.sql): " . $fi_e->getMessage());
+                                }
+                            }
+                        }
+                    }
+
                     // Save reference links (optional)
                     if (!empty($reference_links_raw)) {
                         try {
@@ -180,7 +199,7 @@ include '../includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" class="space-y-8" id="contest-form" novalidate>
+            <form method="POST" enctype="multipart/form-data" class="space-y-8" id="contest-form" novalidate>
                 <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                         <span class="w-8 h-8 rounded-lg bg-secondary text-white flex items-center justify-center font-black text-sm">1</span>
@@ -231,6 +250,27 @@ include '../includes/header.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
+                </section>
+
+                <!-- Featured Image (Optional) -->
+                <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-5">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center text-sm">🖼️</span>
+                        Featured Image <span class="ml-2 text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">Optional</span>
+                    </h3>
+                    <p class="text-sm text-gray-500 -mt-2">Add a banner image to make your contest stand out. JPG, PNG, WEBP · max 5 MB · 16:9 recommended.</p>
+                    <label class="block relative w-full rounded-2xl overflow-hidden cursor-pointer group" style="aspect-ratio:16/7;" id="featured-img-label">
+                        <div class="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl group-hover:border-secondary transition" id="featured-img-placeholder">
+                            <svg class="w-10 h-10 text-gray-300 mb-2 group-hover:text-secondary transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <p class="text-sm font-bold text-gray-400 group-hover:text-secondary transition">Click to upload a featured image</p>
+                            <p class="text-xs text-gray-400 mt-1">16:9 ratio · JPG, PNG, WEBP · max 5 MB</p>
+                        </div>
+                        <img id="featured-img-preview" class="w-full h-full object-cover absolute inset-0 hidden rounded-2xl" alt="Preview">
+                        <div id="featured-img-change-hint" class="absolute inset-0 bg-black/40 text-white text-sm font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl hidden pointer-events-none">
+                            📷 Change Image
+                        </div>
+                        <input type="file" name="featured_image" accept="image/jpeg,image/png,image/webp" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="previewFeaturedImg(this)">
+                    </label>
                 </section>
 
                 <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
@@ -373,6 +413,22 @@ include '../includes/header.php';
             </form>
 
             <script>
+            function previewFeaturedImg(input) {
+                const preview     = document.getElementById('featured-img-preview');
+                const placeholder = document.getElementById('featured-img-placeholder');
+                const changeHint  = document.getElementById('featured-img-change-hint');
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        preview.src = e.target.result;
+                        preview.classList.remove('hidden');
+                        placeholder.classList.add('hidden');
+                        changeHint.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(input.files[0]);
+                }
+            }
+
             function addRefLink() {
                 const container = document.getElementById('ref-links-container');
                 const row = document.createElement('div');

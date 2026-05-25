@@ -37,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $target_file  = $target_dir . $new_filename;
             if (move_uploaded_file($_FILES['profile_photo']['tmp_name'], $target_file)) {
                 $photo_path = "assets/uploads/profiles/" . $new_filename;
+            } else {
+                $error = "Could not save photo — the uploads folder may not be writable. Please try again or contact support.";
             }
         }
     }

@@ -58,7 +58,13 @@ include '../includes/header.php';
 
             <div class="space-y-4">
                 <?php foreach ($contests as $contest): ?>
-                    <div class="p-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div class="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                        <?php if (!empty($contest['featured_image'])): ?>
+                            <div class="w-full h-36 overflow-hidden">
+                                <img src="<?php echo APP_URL . e($contest['featured_image']); ?>" alt="<?php echo e($contest['title']); ?>" class="w-full h-full object-cover">
+                            </div>
+                        <?php endif; ?>
+                        <div class="p-6">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
                             <div class="flex-1">
                                 <div class="flex flex-wrap items-center gap-3 mb-2">
@@ -82,6 +88,7 @@ include '../includes/header.php';
                                 </a>
                             </div>
                         </div>
+                        </div><!-- /p-6 -->
                     </div>
                 <?php endforeach; ?>
             </div>

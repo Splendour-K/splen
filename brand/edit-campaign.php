@@ -34,10 +34,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usage_rights = $_POST['usage_rights_package'];
     $status = $_POST['status'];
 
+    // Handle Featured Image Upload (optional, non-fatal)
+    $new_featured_image = null; // null = keep existing
+    if (!empty($_FILES['featured_image']['name']) && $_FILES['featured_image']['error'] === UPLOAD_ERR_OK) {
+        $fi_dir  = "../assets/uploads/listings/";
+        if (!is_dir($fi_dir)) mkdir($fi_dir, 0755, true);
+        $fi_ext  = strtolower(pathinfo($_FILES['featured_image']['name'], PATHINFO_EXTENSION));
+        $fi_size = $_FILES['featured_image']['size'];
+        if (in_array($fi_ext, ['jpg','jpeg','png','webp']) && $fi_size <= 5 * 1024 * 1024) {
+            $fi_name = "campaign_{$id}_" . time() . ".{$fi_ext}";
+            if (move_uploaded_file($_FILES['featured_image']['tmp_name'], $fi_dir . $fi_name)) {
+                $new_featured_image = "assets/uploads/listings/{$fi_name}";
+            }
+        } elseif ($fi_size > 5 * 1024 * 1024) {
+            $error = "Featured image must be under 5 MB.";
+        }
+    }
+
     $stmt = $pdo->prepare("UPDATE campaigns SET title = ?, product_name = ?, category = ?, video_type = ?, video_length = ?, budget_per_creator = ?, currency = ?, deadline = ?, main_message = ?, words_to_say = ?, usage_rights_package = ?, status = ? WHERE id = ?");
-    
+
     if ($stmt->execute([$title, $product_name, $category, $video_type, $video_length, $budget, $currency, $deadline, $main_message, $words_to_say, $usage_rights, $status, $id])) {
         $success = "Campaign updated successfully!";
+
+        // Update featured image separately (requires fix_featured_images.sql migration)
+        if ($new_featured_image !== null) {
+            try {
+                $pdo->prepare("UPDATE campaigns SET featured_image = ? WHERE id = ?")
+                    ->execute([$new_featured_image, $id]);
+            } catch (\Exception $fi_e) {
+                error_log("featured_image column not found (run fix_featured_images.sql): " . $fi_e->getMessage());
+            }
+        }
+
         $stmt_reload = $pdo->prepare("SELECT * FROM campaigns WHERE id = ?");
         $stmt_reload->execute([$id]);
         $campaign = $stmt_reload->fetch();
@@ -71,7 +99,7 @@ include '../includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <form method="POST" class="p-8 md:p-12 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-10">
+            <form method="POST" enctype="multipart/form-data" class="p-8 md:p-12 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-10">
                 <section>
                     <h3 class="text-xl font-black text-gray-900 dark:text-white mb-6">Basic Info</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -177,6 +205,32 @@ include '../includes/header.php';
                             </select>
                         </div>
                     </div>
+                </section>
+
+                <!-- Featured Image -->
+                <section>
+                    <h3 class="text-xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+                        <span class="w-8 h-8 bg-blue-500/10 text-blue-500 rounded-lg flex items-center justify-center text-sm">🖼️</span>
+                        Featured Image <span class="ml-2 text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">Optional</span>
+                    </h3>
+                    <p class="text-xs text-gray-500 mb-4">Upload a banner image for your campaign listing. JPG, PNG, WEBP · max 5 MB. Leave empty to keep the current image.</p>
+                    <label class="block relative w-full rounded-2xl overflow-hidden cursor-pointer group" style="aspect-ratio:16/7;" id="fi-label">
+                        <?php if (!empty($campaign['featured_image'])): ?>
+                            <img id="fi-preview" src="<?php echo APP_URL . e($campaign['featured_image']); ?>" alt="Current featured image" class="w-full h-full object-cover absolute inset-0">
+                            <div id="fi-placeholder" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                                <p class="text-sm font-bold text-gray-400">Click to upload a featured image</p>
+                            </div>
+                            <div class="absolute inset-0 bg-black/40 text-white text-sm font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">📷 Change Image</div>
+                        <?php else: ?>
+                            <div id="fi-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl group-hover:border-secondary transition">
+                                <svg class="w-10 h-10 text-gray-300 mb-2 group-hover:text-secondary transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <p class="text-sm font-bold text-gray-400 group-hover:text-secondary transition">Click to upload a featured image</p>
+                                <p class="text-xs text-gray-400 mt-1">16:9 ratio · JPG, PNG, WEBP · max 5 MB</p>
+                            </div>
+                            <img id="fi-preview" class="w-full h-full object-cover absolute inset-0 hidden rounded-2xl" alt="Preview">
+                        <?php endif; ?>
+                        <input type="file" name="featured_image" accept="image/jpeg,image/png,image/webp" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="(function(i){const p=document.getElementById('fi-preview'),ph=document.getElementById('fi-placeholder');if(i.files&&i.files[0]){const r=new FileReader();r.onload=e=>{p.src=e.target.result;p.classList.remove('hidden');ph.classList.add('hidden');};r.readAsDataURL(i.files[0]);}})(this)">
+                    </label>
                 </section>
 
                 <div class="flex gap-4">
