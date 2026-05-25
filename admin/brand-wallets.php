@@ -12,6 +12,12 @@ $search  = trim($_GET['search'] ?? '');
 
 // ── POST actions ──────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Safety: don't attempt writes if the wallet table doesn't exist
+    try { $pdo->query("SELECT 1 FROM brand_wallets LIMIT 1"); }
+    catch (\PDOException $e) {
+        $error = "Wallet tables not yet migrated. Run fix_wallet.sql first.";
+        goto skip_post_actions;
+    }
     $action    = $_POST['action'] ?? '';
     $wallet_id = (int)($_POST['wallet_id'] ?? 0);
     $admin_id  = (int)$_SESSION['user_id'];
@@ -108,50 +114,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $view = 'detail';
     header("Location: brand-wallets.php?view=detail&wallet_id={$wallet_id_focus}&" . ($success ? 'msg=' . urlencode($success) : 'err=' . urlencode($error)));
     exit;
+
+    skip_post_actions:; // jumped here when wallet tables aren't migrated yet
 }
 
 if (!empty($_GET['msg'])) $success = $_GET['msg'];
 if (!empty($_GET['err'])) $error   = $_GET['err'];
 
 // ── Load data ─────────────────────────────────────────────────
-if ($view === 'detail' && $wallet_id_focus > 0) {
-    $wstmt = $pdo->prepare("SELECT bw.*, b.brand_name, b.contact_person, u.email FROM brand_wallets bw JOIN brands b ON bw.brand_id = b.id JOIN users u ON b.user_id = u.id WHERE bw.id = ?");
-    $wstmt->execute([$wallet_id_focus]);
-    $focused_wallet = $wstmt->fetch();
-
-    $txns_page  = max(1, (int)($_GET['tpage'] ?? 1));
-    $txns_limit = 30;
-    $txns_offset = ($txns_page - 1) * $txns_limit;
-    $transactions = get_wallet_transactions($wallet_id_focus, $txns_limit, $txns_offset);
-
-    $total_txns = (int)$pdo->prepare("SELECT COUNT(*) FROM wallet_transactions WHERE wallet_id = ?")->execute([$wallet_id_focus]) ? $pdo->query("SELECT COUNT(*) FROM wallet_transactions WHERE wallet_id = {$wallet_id_focus}")->fetchColumn() : 0;
-    $total_txn_pages = max(1, (int)ceil($total_txns / $txns_limit));
+$wallet_tables_exist = true;
+try {
+    $pdo->query("SELECT 1 FROM brand_wallets LIMIT 1");
+} catch (\PDOException $e) {
+    $wallet_tables_exist = false;
+    $error = "⚠️ The brand_wallets table does not exist yet. Please run fix_wallet.sql in phpMyAdmin to enable the wallet system.";
 }
 
-// ── All wallets list ──────────────────────────────────────────
-$list_sql = "
-    SELECT bw.*, b.brand_name, b.contact_person, u.email
-    FROM brand_wallets bw
-    JOIN brands b ON bw.brand_id = b.id
-    JOIN users u ON b.user_id = u.id
-    WHERE 1=1
-";
-if ($search) {
-    $list_sql .= " AND (b.brand_name LIKE ? OR u.email LIKE ? OR b.contact_person LIKE ?)";
-}
-$list_sql .= " ORDER BY bw.available_balance DESC, b.brand_name ASC";
+$focused_wallet = null;
+$transactions   = [];
+$all_wallets    = [];
+$stats          = ['total' => 0, 'total_avail' => 0, 'total_reserved' => 0, 'total_spent' => 0];
 
-$list_stmt = $pdo->prepare($list_sql);
-if ($search) {
-    $sp = '%' . $search . '%';
-    $list_stmt->execute([$sp, $sp, $sp]);
-} else {
-    $list_stmt->execute();
-}
-$all_wallets = $list_stmt->fetchAll();
+if ($wallet_tables_exist) {
+    if ($view === 'detail' && $wallet_id_focus > 0) {
+        $wstmt = $pdo->prepare("SELECT bw.*, b.brand_name, b.contact_person, u.email FROM brand_wallets bw JOIN brands b ON bw.brand_id = b.id JOIN users u ON b.user_id = u.id WHERE bw.id = ?");
+        $wstmt->execute([$wallet_id_focus]);
+        $focused_wallet = $wstmt->fetch();
 
-// Summary stats
-$stats = $pdo->query("SELECT COUNT(*) as total, SUM(available_balance) as total_avail, SUM(reserved_balance) as total_reserved, SUM(total_spent) as total_spent FROM brand_wallets")->fetch();
+        $txns_page  = max(1, (int)($_GET['tpage'] ?? 1));
+        $txns_limit = 30;
+        $txns_offset = ($txns_page - 1) * $txns_limit;
+        $transactions = get_wallet_transactions($wallet_id_focus, $txns_limit, $txns_offset);
+
+        $total_txns = (int)$pdo->prepare("SELECT COUNT(*) FROM wallet_transactions WHERE wallet_id = ?")->execute([$wallet_id_focus]) ? $pdo->query("SELECT COUNT(*) FROM wallet_transactions WHERE wallet_id = {$wallet_id_focus}")->fetchColumn() : 0;
+        $total_txn_pages = max(1, (int)ceil($total_txns / $txns_limit));
+    }
+
+    // ── All wallets list ──────────────────────────────────────────
+    $list_sql = "
+        SELECT bw.*, b.brand_name, b.contact_person, u.email
+        FROM brand_wallets bw
+        JOIN brands b ON bw.brand_id = b.id
+        JOIN users u ON b.user_id = u.id
+        WHERE 1=1
+    ";
+    if ($search) {
+        $list_sql .= " AND (b.brand_name LIKE ? OR u.email LIKE ? OR b.contact_person LIKE ?)";
+    }
+    $list_sql .= " ORDER BY bw.available_balance DESC, b.brand_name ASC";
+
+    $list_stmt = $pdo->prepare($list_sql);
+    if ($search) {
+        $sp = '%' . $search . '%';
+        $list_stmt->execute([$sp, $sp, $sp]);
+    } else {
+        $list_stmt->execute();
+    }
+    $all_wallets = $list_stmt->fetchAll();
+
+    // Summary stats
+    $stats = $pdo->query("SELECT COUNT(*) as total, SUM(available_balance) as total_avail, SUM(reserved_balance) as total_reserved, SUM(total_spent) as total_spent FROM brand_wallets")->fetch();
+}
 
 include '../includes/header.php';
 ?>

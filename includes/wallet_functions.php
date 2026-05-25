@@ -11,22 +11,40 @@
 
 /**
  * Get a brand's wallet row. Creates one (GHS, zero balance) if it doesn't exist yet.
+ * Returns a safe default array if the brand_wallets table hasn't been migrated yet.
  */
 function get_brand_wallet(int $brand_id): array|false {
     global $pdo;
 
-    $stmt = $pdo->prepare("SELECT * FROM brand_wallets WHERE brand_id = ?");
-    $stmt->execute([$brand_id]);
-    $wallet = $stmt->fetch();
-
-    if (!$wallet) {
-        $pdo->prepare("INSERT IGNORE INTO brand_wallets (brand_id, currency) VALUES (?, 'GHS')")
-            ->execute([$brand_id]);
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM brand_wallets WHERE brand_id = ?");
         $stmt->execute([$brand_id]);
         $wallet = $stmt->fetch();
-    }
 
-    return $wallet;
+        if (!$wallet) {
+            $pdo->prepare("INSERT IGNORE INTO brand_wallets (brand_id, currency) VALUES (?, 'GHS')")
+                ->execute([$brand_id]);
+            $stmt->execute([$brand_id]);
+            $wallet = $stmt->fetch();
+        }
+
+        return $wallet;
+    } catch (\PDOException $e) {
+        // Table likely hasn't been migrated yet — log and return a safe default
+        error_log("get_brand_wallet: DB error for brand_id={$brand_id}: " . $e->getMessage());
+        return [
+            'id'                => 0,
+            'brand_id'          => $brand_id,
+            'currency'          => 'GHS',
+            'available_balance' => '0.00',
+            'reserved_balance'  => '0.00',
+            'total_spent'       => '0.00',
+            'status'            => 'active',
+            'created_at'        => null,
+            'updated_at'        => null,
+            '_migration_pending' => true,
+        ];
+    }
 }
 
 // ── Pre-publish wallet check ──────────────────────────────────
@@ -125,7 +143,7 @@ function reserve_wallet_budget(
     global $pdo;
 
     $wallet = get_brand_wallet($brand_id);
-    if (!$wallet) return false;
+    if (!$wallet || !empty($wallet['_migration_pending'])) return false;
 
     $wallet_id       = (int)$wallet['id'];
     $avail_before    = (float)$wallet['available_balance'];
