@@ -92,10 +92,15 @@ include '../includes/header.php';
                         <div>
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Category</label>
                             <select name="category" class="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium">
-                                <option value="Tech" <?php echo $campaign['category'] == 'Tech' ? 'selected' : ''; ?>>Tech</option>
-                                <option value="Lifestyle" <?php echo $campaign['category'] == 'Lifestyle' ? 'selected' : ''; ?>>Lifestyle</option>
-                                <option value="Fashion" <?php echo $campaign['category'] == 'Fashion' ? 'selected' : ''; ?>>Fashion</option>
-                                <option value="Education" <?php echo $campaign['category'] == 'Education' ? 'selected' : ''; ?>>Education</option>
+                                <?php foreach ([
+                                    'Beauty','Skincare','Fashion','Food & Drink',
+                                    'Tech Products','Mobile Apps','Books & Education',
+                                    'Health & Wellness','Sports & Fitness','Gaming',
+                                    'Music & Entertainment','Travel','Finance & Fintech',
+                                    'Home & Lifestyle','Automotive','Pets','Other',
+                                ] as $c): ?>
+                                    <option value="<?php echo $c; ?>" <?php echo $campaign['category'] === $c ? 'selected' : ''; ?>><?php echo $c; ?></option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                         <div>
@@ -137,7 +142,18 @@ include '../includes/header.php';
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                         <div>
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Video Type</label>
-                            <input type="text" name="video_type" value="<?php echo e($campaign['video_type']); ?>" class="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium">
+                            <select name="video_type" class="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium">
+                                <?php foreach ([
+                                    'Product Review','Unboxing','Testimonial',
+                                    'Campus Lifestyle','App Demo','Tutorial / How-To',
+                                    'Day in the Life','Behind the Scenes',
+                                    'Get Ready With Me (GRWM)','Haul',
+                                    'Challenge','Skit / Comedy','Vlog',
+                                    'Before & After','Q&A','Other',
+                                ] as $vt): ?>
+                                    <option value="<?php echo $vt; ?>" <?php echo $campaign['video_type'] === $vt ? 'selected' : ''; ?>><?php echo $vt; ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Video Length</label>

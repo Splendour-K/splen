@@ -26,6 +26,7 @@ $terms_conditions         = $_POST['terms_conditions']         ?? '';
 $cpm_enabled              = isset($_POST['cpm_enabled']);
 $pay_per_1000_views_raw   = $_POST['pay_per_1000_views']       ?? '';
 $max_payable_views_raw    = $_POST['max_payable_views']        ?? '';
+$reference_links_raw      = array_values(array_filter(array_map('trim', $_POST['reference_links'] ?? [])));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $budget_num = (float)$total_contest_budget_raw;
@@ -35,8 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Title, Budget, and Submission Deadline are required.";
     } else if (strtotime($submission_deadline) <= time()) {
         $error = "Submission deadline must be in the future.";
-    } else if ($winners_num < 1 || $winners_num > 10) {
-        $error = "Number of winners must be between 1 and 10.";
+    } else if ($winners_num < 1) {
+        $error = "Number of winners must be at least 1.";
     } else {
         $validation_error = validate_minimum_payment($budget_num, $currency);
         if ($validation_error !== true) {
@@ -67,6 +68,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $submission_deadline, $winner_announcement_date, $winners_num, $terms_conditions
                     ]);
                     $contest_id = $pdo->lastInsertId();
+
+                    // Save reference links (optional)
+                    if (!empty($reference_links_raw)) {
+                        try {
+                            $rl_stmt = $pdo->prepare(
+                                "INSERT INTO contest_reference_links (contest_id, link_url, link_type) VALUES (?, ?, 'inspiration')"
+                            );
+                            foreach ($reference_links_raw as $rl) {
+                                if (strlen($rl) >= 10) {
+                                    $rl_stmt->execute([$contest_id, $rl]);
+                                }
+                            }
+                        } catch (\Exception $rl_e) {
+                            error_log('contest_reference_links insert failed: ' . $rl_e->getMessage());
+                        }
+                    }
 
                     // Save optional CPM fields (graceful — only works after fix_contests_v2.sql is run)
                     if ($cpm_enabled && $cpm_rate_val > 0) {
@@ -187,9 +204,29 @@ include '../includes/header.php';
                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Category</label>
                         <select name="category" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
                             <option value="">Select a category</option>
-                            <?php
-                              $cats = ['product'=>'Product Demo','tech'=>'Tech & Innovation','lifestyle'=>'Lifestyle','fashion'=>'Fashion & Beauty','food'=>'Food & Beverage','education'=>'Education','other'=>'Other'];
-                              foreach ($cats as $val => $label): ?>
+                            <?php $cats = [
+                                'beauty'       => 'Beauty',
+                                'skincare'     => 'Skincare',
+                                'fashion'      => 'Fashion & Style',
+                                'food'         => 'Food & Beverage',
+                                'tech'         => 'Tech & Innovation',
+                                'apps'         => 'Mobile Apps',
+                                'books'        => 'Books & Education',
+                                'wellness'     => 'Health & Wellness',
+                                'sports'       => 'Sports & Fitness',
+                                'gaming'       => 'Gaming',
+                                'music'        => 'Music & Entertainment',
+                                'travel'       => 'Travel',
+                                'finance'      => 'Finance & Fintech',
+                                'lifestyle'    => 'Lifestyle',
+                                'home'         => 'Home & Lifestyle',
+                                'automotive'   => 'Automotive',
+                                'pets'         => 'Pets',
+                                'product'      => 'Product Demo',
+                                'education'    => 'Education',
+                                'other'        => 'Other',
+                            ];
+                            foreach ($cats as $val => $label): ?>
                                 <option value="<?php echo $val; ?>" <?php echo $category === $val ? 'selected' : ''; ?>><?php echo $label; ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -221,12 +258,8 @@ include '../includes/header.php';
 
                     <div>
                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Number of Winners <span class="text-red-500">*</span></label>
-                        <select name="number_of_winners" id="f-winners" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
-                            <?php foreach ([1,2,3,5,10] as $w): ?>
-                                <option value="<?php echo $w; ?>" <?php echo (int)$number_of_winners === $w ? 'selected' : ''; ?>><?php echo $w; ?> <?php echo $w === 1 ? 'Winner' : 'Winners'; ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <p class="text-xs text-gray-500 mt-1">Budget will be split: Grand Prize gets 1.5× a normal share, 3rd Place gets 0.75×.</p>
+                        <input type="number" name="number_of_winners" id="f-winners" value="<?php echo (int)$number_of_winners ?: 1; ?>" min="1" max="500" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                        <p class="text-xs text-gray-500 mt-1">Enter any number. Budget splits evenly; Grand Prize gets 1.5×, 3rd Place gets 0.75×, rest split equally.</p>
                     </div>
                 </section>
 
@@ -265,10 +298,41 @@ include '../includes/header.php';
                     </div>
                 </section>
 
-                <!-- Section 5: CPM (Optional) -->
+                <!-- Section 5: Reference Videos (Optional) -->
+                <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-5">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center text-sm">🎬</span>
+                        Reference Videos
+                        <span class="text-xs font-medium text-gray-400">(Optional)</span>
+                    </h3>
+                    <p class="text-sm text-gray-500 -mt-2">Share example videos so contestants understand the style, tone, and quality you expect.</p>
+
+                    <div id="ref-links-container" class="space-y-3">
+                        <?php if (!empty($reference_links_raw)): ?>
+                            <?php foreach ($reference_links_raw as $rl): ?>
+                                <div class="flex gap-2 ref-link-row">
+                                    <input type="url" name="reference_links[]" value="<?php echo e($rl); ?>" placeholder="https://www.tiktok.com/@example/video/..." class="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary text-sm">
+                                    <button type="button" onclick="this.parentElement.remove()" class="px-4 py-3 bg-red-100 dark:bg-red-900/20 text-red-500 font-black rounded-xl hover:bg-red-500 hover:text-white transition w-12 flex-shrink-0">×</button>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="flex gap-2 ref-link-row">
+                                <input type="url" name="reference_links[]" placeholder="https://www.tiktok.com/@example/video/... (optional)" class="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary text-sm">
+                                <button type="button" onclick="this.parentElement.remove()" class="px-4 py-3 bg-red-100 dark:bg-red-900/20 text-red-500 font-black rounded-xl hover:bg-red-500 hover:text-white transition w-12 flex-shrink-0">×</button>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <button type="button" onclick="addRefLink()" class="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-xl hover:border-secondary hover:text-secondary transition text-sm font-bold w-full justify-center">
+                        <span class="text-base leading-none">+</span> Add another reference link
+                    </button>
+                    <p class="text-xs text-gray-400">TikTok, Instagram Reels, YouTube Shorts, or any public video URL.</p>
+                </section>
+
+                <!-- Section 6: CPM (Optional) -->
                 <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-6">
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center font-black text-sm">5</span>
+                        <span class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 flex items-center justify-center font-black text-sm">6</span>
                         CPM Bonus Pay
                         <span class="text-xs font-medium text-gray-400">(Optional)</span>
                     </h3>
@@ -309,6 +373,18 @@ include '../includes/header.php';
             </form>
 
             <script>
+            function addRefLink() {
+                const container = document.getElementById('ref-links-container');
+                const row = document.createElement('div');
+                row.className = 'flex gap-2 ref-link-row';
+                row.innerHTML = `
+                    <input type="url" name="reference_links[]" placeholder="https://..." class="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary text-sm">
+                    <button type="button" onclick="this.parentElement.remove()" class="px-4 py-3 bg-red-100 dark:bg-red-900/20 text-red-500 font-black rounded-xl hover:bg-red-500 hover:text-white transition w-12 flex-shrink-0">×</button>
+                `;
+                container.appendChild(row);
+                row.querySelector('input').focus();
+            }
+
             (function() {
                 const MIN_BY_CCY = <?php echo json_encode(minimum_payments()); ?>;
                 const form = document.getElementById('contest-form');

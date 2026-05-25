@@ -41,6 +41,7 @@ $posting_required         = isset($_POST['posting_required']) ? 1 : 0;
 $usage_rights_package     = $_POST['usage_rights_package']     ?? 'basic';
 $product_shipping_details = $_POST['product_shipping_details'] ?? '';
 $revision_limit           = $_POST['revision_limit']           ?? 1;
+$reference_links_raw      = array_values(array_filter(array_map('trim', $_POST['reference_links'] ?? [])));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $quota['can_create']) {
     $budget_num = (float)$budget_per_creator_raw;
@@ -78,6 +79,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $quota['can_create']) {
                         $posting_required, $usage_rights_package, $product_shipping_details, (int)$revision_limit
                     ]);
                     $campaign_id = (int)$pdo->lastInsertId();
+
+                    // Save reference links (optional — table must exist from hostinger_setup.sql)
+                    if (!empty($reference_links_raw)) {
+                        try {
+                            $rl_stmt = $pdo->prepare(
+                                "INSERT INTO campaign_reference_links (campaign_id, link_url, link_type) VALUES (?, ?, 'inspiration')"
+                            );
+                            foreach ($reference_links_raw as $rl) {
+                                if (strlen($rl) >= 10) {
+                                    $rl_stmt->execute([$campaign_id, $rl]);
+                                }
+                            }
+                        } catch (\Exception $rl_e) {
+                            error_log('campaign_reference_links insert failed: ' . $rl_e->getMessage());
+                        }
+                    }
 
                     // Reserve wallet budget
                     reserve_wallet_budget(
@@ -189,7 +206,13 @@ include '../includes/header.php';
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Category</label>
                             <select name="category" class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:border-secondary outline-none transition-all dark:text-white">
-                                <?php foreach (['Beauty','Fashion','Food & Drink','Tech Products','Mobile Apps','Skincare'] as $c): ?>
+                                <?php foreach ([
+                                    'Beauty','Skincare','Fashion','Food & Drink',
+                                    'Tech Products','Mobile Apps','Books & Education',
+                                    'Health & Wellness','Sports & Fitness','Gaming',
+                                    'Music & Entertainment','Travel','Finance & Fintech',
+                                    'Home & Lifestyle','Automotive','Pets','Other',
+                                ] as $c): ?>
                                     <option value="<?php echo $c; ?>" <?php echo $category === $c ? 'selected' : ''; ?>><?php echo $c; ?></option>
                                 <?php endforeach; ?>
                             </select>
@@ -197,7 +220,14 @@ include '../includes/header.php';
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Video Type</label>
                             <select name="video_type" class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:border-secondary outline-none transition-all dark:text-white">
-                                <?php foreach (['Product Review','Unboxing','Testimonial','Campus Lifestyle','App Demo'] as $vt): ?>
+                                <?php foreach ([
+                                    'Product Review','Unboxing','Testimonial',
+                                    'Campus Lifestyle','App Demo','Tutorial / How-To',
+                                    'Day in the Life','Behind the Scenes',
+                                    'Get Ready With Me (GRWM)','Haul',
+                                    'Challenge','Skit / Comedy','Vlog',
+                                    'Before & After','Q&A','Other',
+                                ] as $vt): ?>
                                     <option value="<?php echo $vt; ?>" <?php echo $video_type === $vt ? 'selected' : ''; ?>><?php echo $vt; ?></option>
                                 <?php endforeach; ?>
                             </select>
@@ -277,15 +307,60 @@ include '../includes/header.php';
                         </div>
                     </div>
 
-                    <div>
-                        <button type="submit" id="submit-btn" disabled class="w-full py-5 bg-secondary text-white text-lg font-black rounded-[1.5rem] shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all text-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100">
-                            Publish Campaign Brief
-                        </button>
-                    </div>
                 </section>
+
+                <!-- Section 4: Reference Videos (Optional) -->
+                <section class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-5">
+                    <div class="flex items-center gap-3">
+                        <span class="w-10 h-10 bg-purple-500/10 text-purple-500 rounded-xl flex items-center justify-center text-lg">🎬</span>
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-white">Reference Videos <span class="ml-2 text-xs font-normal text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">Optional</span></h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Share example videos so creators know the style and tone you're after.</p>
+                        </div>
+                    </div>
+
+                    <div id="ref-links-container" class="space-y-3">
+                        <?php if (!empty($reference_links_raw)): ?>
+                            <?php foreach ($reference_links_raw as $rl): ?>
+                                <div class="flex gap-2 ref-link-row">
+                                    <input type="url" name="reference_links[]" value="<?php echo e($rl); ?>" placeholder="https://www.tiktok.com/@example/video/..." class="flex-1 px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:border-secondary outline-none transition-all dark:text-white text-sm">
+                                    <button type="button" onclick="this.parentElement.remove()" class="px-4 py-3 bg-red-100 dark:bg-red-900/20 text-red-500 font-black rounded-2xl hover:bg-red-500 hover:text-white transition w-12 flex-shrink-0">×</button>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="flex gap-2 ref-link-row">
+                                <input type="url" name="reference_links[]" placeholder="https://www.tiktok.com/@example/video/... (optional)" class="flex-1 px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:border-secondary outline-none transition-all dark:text-white text-sm">
+                                <button type="button" onclick="this.parentElement.remove()" class="px-4 py-3 bg-red-100 dark:bg-red-900/20 text-red-500 font-black rounded-2xl hover:bg-red-500 hover:text-white transition w-12 flex-shrink-0">×</button>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <button type="button" onclick="addRefLink()" class="flex items-center gap-2 px-5 py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-2xl hover:border-secondary hover:text-secondary transition text-sm font-bold w-full justify-center">
+                        <span class="text-lg leading-none">+</span> Add another reference link
+                    </button>
+                    <p class="text-xs text-gray-400 ml-1">TikTok, Instagram Reels, YouTube Shorts, or any public video URL.</p>
+                </section>
+
+                <div>
+                    <button type="submit" id="submit-btn" disabled class="w-full py-5 bg-secondary text-white text-lg font-black rounded-[1.5rem] shadow-xl shadow-secondary/20 hover:scale-[1.02] transition-all text-center disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100">
+                        Publish Campaign Brief
+                    </button>
+                </div>
             </form>
 
             <script>
+            function addRefLink() {
+                const container = document.getElementById('ref-links-container');
+                const row = document.createElement('div');
+                row.className = 'flex gap-2 ref-link-row';
+                row.innerHTML = `
+                    <input type="url" name="reference_links[]" placeholder="https://..." class="flex-1 px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:border-secondary outline-none transition-all dark:text-white text-sm">
+                    <button type="button" onclick="this.parentElement.remove()" class="px-4 py-3 bg-red-100 dark:bg-red-900/20 text-red-500 font-black rounded-2xl hover:bg-red-500 hover:text-white transition w-12 flex-shrink-0">×</button>
+                `;
+                container.appendChild(row);
+                row.querySelector('input').focus();
+            }
+
             (function() {
                 const MIN_BY_CCY = <?php echo json_encode(minimum_payments()); ?>;
                 const form = document.getElementById('campaign-form');
