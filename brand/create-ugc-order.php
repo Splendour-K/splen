@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/functions.php';
+require_once '../includes/wallet_functions.php';
 require_role('brand');
 
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
@@ -21,6 +22,7 @@ $deadline           = $_POST['submission_deadline'] ?? '';
 $usage_rights_pkg   = $_POST['usage_rights']        ?? 'basic';
 $revision_limit     = $_POST['revision_limit']      ?? 1;
 $deliverables_count = $_POST['deliverables_count']  ?? 1;
+$creator_count_raw  = $_POST['creator_count']       ?? 1;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $budget_num = (float)$budget_per_creator;
@@ -34,34 +36,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($validation_error !== true) {
             $error = $validation_error;
         } else {
-            $sql = "INSERT INTO ugc_orders (
-                brand_id, title, product_name, full_description, budget_per_creator, currency,
-                deadline, usage_rights_package, revision_limit, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
+            // ── Wallet check ─────────────────────────────────────
+            $creator_count_num = max(1, (int)$creator_count_raw);
+            $required_budget   = $budget_num * $creator_count_num;
+            $wallet_check      = check_wallet_for_publish($brand['id'], $required_budget, $currency);
 
-            $stmt = $pdo->prepare($sql);
-            try {
-                $stmt->execute([
-                    $brand['id'], $title, $product_name, $full_description, $budget_num, $currency,
-                    $deadline, $usage_rights_pkg, (int)$revision_limit
-                ]);
-                $ugc_order_id = (int)$pdo->lastInsertId();
+            if (!$wallet_check['ok']) {
+                $error = wallet_error_message($wallet_check);
+            } else {
+                $sql = "INSERT INTO ugc_orders (
+                    brand_id, title, product_name, full_description, budget_per_creator, creator_count, currency,
+                    deadline, usage_rights_package, revision_limit, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
 
-                $creator_stmt = $pdo->query("SELECT user_id FROM creators");
-                $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
+                $stmt = $pdo->prepare($sql);
+                try {
+                    $stmt->execute([
+                        $brand['id'], $title, $product_name, $full_description, $budget_num, $creator_count_num, $currency,
+                        $deadline, $usage_rights_pkg, (int)$revision_limit
+                    ]);
+                    $ugc_order_id = (int)$pdo->lastInsertId();
 
-                create_notification_batch(
-                    $creator_user_ids,
-                    'New UGC Opportunity',
-                    $brand['brand_name'] . ' just published a new UGC order: ' . $title,
-                    'ugc_order',
-                    'creator/submit-ugc-order.php?order_id=' . $ugc_order_id,
-                    'ugc_order',
-                    $ugc_order_id
-                );
-                $success = "UGC Order created successfully!";
-            } catch (Exception $e) {
-                $error = "Error: " . $e->getMessage();
+                    // Reserve wallet budget
+                    reserve_wallet_budget(
+                        $brand['id'], $required_budget, 'ugc_order_reserve', 'ugc_order', $ugc_order_id,
+                        "UGC Order reserved: {$title} ({$creator_count_num} creator(s) × " . format_money($budget_num, $currency) . ")"
+                    );
+
+                    $creator_stmt = $pdo->query("SELECT user_id FROM creators");
+                    $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                    create_notification_batch(
+                        $creator_user_ids,
+                        'New UGC Opportunity',
+                        $brand['brand_name'] . ' just published a new UGC order: ' . $title,
+                        'ugc_order',
+                        'creator/submit-ugc-order.php?order_id=' . $ugc_order_id,
+                        'ugc_order',
+                        $ugc_order_id
+                    );
+                    $success = "UGC Order created successfully! " . format_money($required_budget, $currency) . " has been reserved from your wallet.";
+                } catch (Exception $e) {
+                    $error = "Error: " . $e->getMessage();
+                }
             }
         }
     }
@@ -153,9 +170,15 @@ include '../includes/header.php';
                     </div>
 
                     <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Number of Creators <span class="text-red-500">*</span></label>
+                        <input type="number" name="creator_count" id="f-creator-count" min="1" max="100" value="<?php echo max(1, (int)$creator_count_raw); ?>" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                        <p class="text-xs text-gray-500 mt-1">How many creators do you need? Required budget = payment per video × number of creators.</p>
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Number of Deliverables</label>
                         <input type="number" name="deliverables_count" min="1" max="100" value="<?php echo (int)$deliverables_count; ?>" class="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
-                        <p class="text-xs text-gray-500 mt-1">How many videos do you need? 1–100.</p>
+                        <p class="text-xs text-gray-500 mt-1">How many videos do you need total? 1–100.</p>
                     </div>
 
                     <div>

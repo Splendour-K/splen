@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/functions.php';
+require_once '../includes/wallet_functions.php';
 require_role('brand');
 
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
@@ -41,6 +42,9 @@ $quota = check_brand_quota($brand_id);
 
 // Profile completion
 $profile_status = check_brand_profile_completion($brand);
+
+// Wallet
+$wallet = get_brand_wallet($brand_id);
 
 // Recent Applications
 $stmt = $pdo->prepare("
@@ -146,6 +150,40 @@ include '../includes/header.php';
                 <div class="p-6 bg-secondary rounded-[2rem] text-white">
                     <p class="text-white/60 text-[10px] font-bold uppercase tracking-widest mb-1">Total Spent</p>
                     <h3 class="text-2xl font-black"><?php echo number_format($total_spent, 0); ?></h3>
+                </div>
+            </div>
+
+            <!-- Wallet Summary Card -->
+            <div class="p-6 bg-gray-900 rounded-[2rem] border border-gray-800 relative overflow-hidden">
+                <div class="absolute -bottom-10 -right-10 w-48 h-48 bg-secondary/20 rounded-full blur-3xl"></div>
+                <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div class="flex items-center gap-5">
+                        <div class="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center text-2xl flex-shrink-0">💳</div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Brand Wallet · <?php echo e($wallet['currency']); ?></p>
+                            <p class="text-3xl font-black text-white mt-1"><?php echo format_money($wallet['available_balance'], $wallet['currency']); ?></p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                <?php echo format_money($wallet['reserved_balance'], $wallet['currency']); ?> reserved
+                                &nbsp;·&nbsp;
+                                <?php echo format_money($wallet['total_spent'], $wallet['currency']); ?> spent
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-3 flex-shrink-0">
+                        <?php if ($wallet['status'] !== 'active'): ?>
+                            <span class="px-4 py-2 bg-red-500/20 text-red-400 font-black text-xs rounded-xl border border-red-500/30">🔒 <?php echo ucfirst($wallet['status']); ?></span>
+                        <?php elseif ((float)$wallet['available_balance'] <= 0): ?>
+                            <span class="px-4 py-2 bg-yellow-500/20 text-yellow-400 font-black text-xs rounded-xl border border-yellow-500/30">⚠ Balance Empty</span>
+                        <?php else: ?>
+                            <span class="px-4 py-2 bg-green-500/20 text-green-400 font-black text-xs rounded-xl border border-green-500/30">✓ Active</span>
+                        <?php endif; ?>
+                        <a href="<?php echo APP_URL; ?>brand/wallet.php" class="px-5 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-bold rounded-xl transition border border-white/10">
+                            View Transactions
+                        </a>
+                        <a href="<?php echo APP_URL; ?>brand/wallet.php#fund" class="px-5 py-2 bg-secondary text-white text-sm font-bold rounded-xl hover:scale-105 transition">
+                            Request Funding
+                        </a>
+                    </div>
                 </div>
             </div>
 

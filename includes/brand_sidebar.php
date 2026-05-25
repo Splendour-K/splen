@@ -16,6 +16,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 ['url' => 'ugc-orders.php', 'label' => 'UGC Orders'],
                 ['url' => 'create-contest.php', 'label' => 'New Contest'],
                 ['url' => 'my-contests.php', 'label' => 'My Contests'],
+                ['url' => 'wallet.php', 'label' => '💳 Wallet'],
                 ['url' => 'subscription.php', 'label' => 'Subscription'],
                 ['url' => 'messages.php', 'label' => 'Messages'],
                 ['url' => 'notifications.php', 'label' => 'Notifications'],

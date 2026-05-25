@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/functions.php';
+require_once '../includes/wallet_functions.php';
 require_role('brand');
 
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
@@ -53,38 +54,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $quota['can_create']) {
         if ($validation_error !== true) {
             $error = $validation_error;
         } else {
-            $sql = "INSERT INTO campaigns (
-                brand_id, title, product_name, category, goal, location_country, location_city,
-                preferred_university, video_type, video_length, creator_count, budget_per_creator, currency,
-                deadline, main_message, required_shots, words_to_say, words_to_avoid, call_to_action,
-                posting_required, usage_rights_package, product_shipping_details, revision_limit, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
+            // ── Wallet check ─────────────────────────────────────
+            $creator_count_num  = max(1, (int)$creator_count);
+            $required_budget    = $budget_num * $creator_count_num;
+            $wallet_check       = check_wallet_for_publish($brand['id'], $required_budget, $currency);
 
-            $stmt = $pdo->prepare($sql);
-            try {
-                $stmt->execute([
-                    $brand['id'], $title, $product_name, $category, $goal, $location_country, $location_city,
-                    $preferred_university, $video_type, $video_length, (int)$creator_count, $budget_num, $currency,
-                    $deadline, $main_message, $required_shots, $words_to_say, $words_to_avoid, $call_to_action,
-                    $posting_required, $usage_rights_package, $product_shipping_details, (int)$revision_limit
-                ]);
-                $campaign_id = (int)$pdo->lastInsertId();
+            if (!$wallet_check['ok']) {
+                $error = wallet_error_message($wallet_check);
+            } else {
+                $sql = "INSERT INTO campaigns (
+                    brand_id, title, product_name, category, goal, location_country, location_city,
+                    preferred_university, video_type, video_length, creator_count, budget_per_creator, currency,
+                    deadline, main_message, required_shots, words_to_say, words_to_avoid, call_to_action,
+                    posting_required, usage_rights_package, product_shipping_details, revision_limit, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
 
-                $creator_stmt = $pdo->query("SELECT user_id FROM creators");
-                $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
+                $stmt = $pdo->prepare($sql);
+                try {
+                    $stmt->execute([
+                        $brand['id'], $title, $product_name, $category, $goal, $location_country, $location_city,
+                        $preferred_university, $video_type, $video_length, $creator_count_num, $budget_num, $currency,
+                        $deadline, $main_message, $required_shots, $words_to_say, $words_to_avoid, $call_to_action,
+                        $posting_required, $usage_rights_package, $product_shipping_details, (int)$revision_limit
+                    ]);
+                    $campaign_id = (int)$pdo->lastInsertId();
 
-                create_notification_batch(
-                    $creator_user_ids,
-                    'New Campaign Brief',
-                    $brand['brand_name'] . ' published a new campaign: ' . $title,
-                    'campaign_published',
-                    'creator/campaign-view.php?id=' . $campaign_id,
-                    'campaign',
-                    $campaign_id
-                );
-                $success = "Campaign created successfully!";
-            } catch (Exception $e) {
-                $error = "Error: " . $e->getMessage();
+                    // Reserve wallet budget
+                    reserve_wallet_budget(
+                        $brand['id'], $required_budget, 'campaign_reserve', 'campaign', $campaign_id,
+                        "Campaign reserved: {$title} ({$creator_count_num} creator(s) × " . format_money($budget_num, $currency) . ")"
+                    );
+
+                    $creator_stmt = $pdo->query("SELECT user_id FROM creators");
+                    $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                    create_notification_batch(
+                        $creator_user_ids,
+                        'New Campaign Brief',
+                        $brand['brand_name'] . ' published a new campaign: ' . $title,
+                        'campaign_published',
+                        'creator/campaign-view.php?id=' . $campaign_id,
+                        'campaign',
+                        $campaign_id
+                    );
+                    $success = "Campaign created successfully! " . format_money($required_budget, $currency) . " has been reserved from your wallet.";
+                } catch (Exception $e) {
+                    $error = "Error: " . $e->getMessage();
+                }
             }
         }
     }
@@ -92,6 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $quota['can_create']) {
 
 $mins = minimum_payments();
 $min_for_current = $mins[$currency] ?? 5;
+
+// Wallet for display
+$wallet_display = get_brand_wallet($brand['id']);
 
 include '../includes/header.php';
 ?>
@@ -111,6 +130,22 @@ include '../includes/header.php';
                 </div>
             </header>
 
+            <!-- Wallet Balance Bar -->
+            <div class="flex items-center justify-between p-4 bg-white dark:bg-gray-900 rounded-[1.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                <div class="flex items-center gap-4">
+                    <span class="text-xl">💳</span>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Wallet Balance (<?php echo e($wallet_display['currency']); ?>)</p>
+                        <p class="text-lg font-black text-gray-900 dark:text-white"><?php echo format_money($wallet_display['available_balance'], $wallet_display['currency']); ?> available</p>
+                    </div>
+                </div>
+                <?php if ((float)$wallet_display['available_balance'] <= 0 || $wallet_display['status'] !== 'active'): ?>
+                    <a href="<?php echo APP_URL; ?>brand/wallet.php" class="px-4 py-2 bg-yellow-500 text-white text-xs font-black rounded-xl hover:bg-yellow-600 transition">Fund Wallet</a>
+                <?php else: ?>
+                    <a href="<?php echo APP_URL; ?>brand/wallet.php" class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded-xl hover:bg-gray-200 transition">View Wallet</a>
+                <?php endif; ?>
+            </div>
+
             <?php if ($success): ?>
                 <div class="p-8 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-[2rem] text-center shadow-sm">
                     <div class="w-20 h-20 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">🚀</div>
@@ -121,8 +156,8 @@ include '../includes/header.php';
             <?php else: ?>
 
             <?php if ($error): ?>
-                <div class="p-6 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-400 font-bold flex items-center">
-                    <span class="mr-3 text-xl">⚠️</span> <?php echo e($error); ?>
+                <div class="p-6 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-400 font-bold whitespace-pre-line flex items-start gap-3">
+                    <span class="text-xl mt-0.5">⚠️</span> <span><?php echo e($error); ?></span>
                 </div>
             <?php endif; ?>
 
