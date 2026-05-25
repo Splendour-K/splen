@@ -334,14 +334,16 @@ include '../includes/header.php';
 
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Campaign Goal / Description</label>
-                        <textarea name="main_message" rows="4" maxlength="2000" placeholder="Describe what you want to achieve..." class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:border-secondary outline-none transition-all dark:text-white"><?php echo e($main_message); ?></textarea>
-                        <p class="text-xs text-gray-500 mt-1 ml-1">Optional. Up to 2,000 characters.</p>
+                        <div class="ql-wrap" id="main_message_wrap"><div id="main_message_editor"></div></div>
+                        <input type="hidden" name="main_message" id="main_message_h">
+                        <p class="text-xs text-gray-500 mt-1 ml-1">Optional — supports <strong>bold</strong>, <em>italic</em>, lists &amp; more.</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Words to Say</label>
-                            <textarea name="words_to_say" rows="3" placeholder="Key phrases the creator should mention..." class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl focus:border-secondary outline-none transition-all dark:text-white"><?php echo e($words_to_say); ?></textarea>
+                            <div class="ql-wrap" id="words_to_say_wrap"><div id="words_to_say_editor"></div></div>
+                            <input type="hidden" name="words_to_say" id="words_to_say_h">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Words to Avoid</label>
@@ -497,11 +499,75 @@ include '../includes/header.php';
                 f_currency.addEventListener('change', () => { updateMinHint(); validateAll(false); });
 
                 form.addEventListener('submit', (e) => {
+                    // Sync rich editor content to hidden inputs before submission
+                    if (window._qlMainMsg)    document.getElementById('main_message_h').value    = window._qlMainMsg.root.innerHTML;
+                    if (window._qlWordsToSay) document.getElementById('words_to_say_h').value    = window._qlWordsToSay.root.innerHTML;
                     if (!validateAll(true)) { e.preventDefault(); }
                 });
 
                 validateAll(false);
                 updateMinHint();
+            })();
+            </script>
+            <!-- ── Quill Rich Text Editor ── -->
+            <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+            <style>
+            .ql-wrap{border-radius:1rem;overflow:hidden;border:1.5px solid #d1d5db;background:#f8fafc;transition:border-color .2s,box-shadow .2s}
+            .ql-wrap:focus-within{border-color:#ea580c!important;box-shadow:0 0 0 4px rgba(234,88,12,.12);outline:none}
+            .dark .ql-wrap{background:#1e293b;border-color:#374151}
+            .dark .ql-wrap:focus-within{border-color:#ea580c!important;box-shadow:0 0 0 4px rgba(234,88,12,.15)}
+            .ql-toolbar.ql-snow{border:none!important;border-bottom:1px solid #e2e8f0!important;background:#f1f5f9;padding:8px 12px;font-family:'Urbanist',sans-serif!important}
+            .dark .ql-toolbar.ql-snow{background:#0f172a;border-bottom-color:#1e293b!important}
+            .dark .ql-toolbar .ql-stroke{stroke:#94a3b8}
+            .dark .ql-toolbar .ql-fill{fill:#94a3b8}
+            .dark .ql-toolbar button:hover .ql-stroke,.dark .ql-toolbar button.ql-active .ql-stroke{stroke:#f8fafc}
+            .dark .ql-toolbar button:hover .ql-fill,.dark .ql-toolbar button.ql-active .ql-fill{fill:#f8fafc}
+            .dark .ql-toolbar .ql-picker-label{color:#94a3b8}
+            .dark .ql-toolbar .ql-picker-options{background:#0f172a;border-color:#334155}
+            .dark .ql-toolbar .ql-picker-item:hover,.dark .ql-toolbar .ql-picker-item.ql-selected,.dark .ql-toolbar .ql-active .ql-picker-label{color:#f8fafc}
+            .ql-container.ql-snow{border:none!important;font-family:'Urbanist',sans-serif!important;font-size:.9375rem}
+            .ql-editor{min-height:8rem;padding:14px 18px;color:#0f172a}
+            .ql-editor.ql-blank::before{color:#94a3b8;font-style:normal;left:18px;right:18px}
+            .dark .ql-editor{color:#f8fafc}
+            .dark .ql-editor.ql-blank::before{color:#475569}
+            .ql-editor p{margin-bottom:.25em}
+            .ql-editor h2{font-size:1.2em;font-weight:700}
+            .ql-editor h3{font-size:1.05em;font-weight:600}
+            .ql-editor ul,.ql-editor ol{padding-left:1.5em}
+            .ql-editor blockquote{border-left:4px solid #ea580c;padding-left:1em;opacity:.8;margin:.3em 0}
+            .ql-editor a{color:#ea580c;text-decoration:underline}
+            </style>
+            <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+            <script>
+            (function() {
+                const TB = [
+                    [{ header: [2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['blockquote', 'link'],
+                    ['clean']
+                ];
+                window._qlMainMsg = new Quill('#main_message_editor', {
+                    theme: 'snow',
+                    placeholder: 'Describe what you want to achieve...',
+                    modules: { toolbar: TB }
+                });
+                window._qlMainMsg.root.innerHTML = <?php echo json_encode($main_message); ?>;
+
+                window._qlWordsToSay = new Quill('#words_to_say_editor', {
+                    theme: 'snow',
+                    placeholder: 'Key phrases the creator should mention...',
+                    modules: { toolbar: TB }
+                });
+                window._qlWordsToSay.root.innerHTML = <?php echo json_encode($words_to_say); ?>;
+
+                // Populate hidden inputs on any change too (belt-and-suspenders)
+                window._qlMainMsg.on('text-change', function() {
+                    document.getElementById('main_message_h').value = window._qlMainMsg.root.innerHTML;
+                });
+                window._qlWordsToSay.on('text-change', function() {
+                    document.getElementById('words_to_say_h').value = window._qlWordsToSay.root.innerHTML;
+                });
             })();
             </script>
             <?php endif; ?>

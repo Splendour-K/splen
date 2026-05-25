@@ -85,7 +85,7 @@ include '../includes/header.php';
                 <div class="md:col-span-2 space-y-8">
                     <div class="p-10 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                         <h3 class="text-xl font-black mb-6">Campaign Brief</h3>
-                        <p class="text-gray-600 dark:text-gray-400 leading-relaxed"><?php echo nl2br(e($job['description'])); ?></p>
+                        <div class="text-gray-600 dark:text-gray-400 leading-relaxed rich-content"><?php echo safe_rich_html($job['description'] ?? ''); ?></div>
                     </div>
 
                     <div class="p-10 bg-white dark:bg-gray-900 rounded-[3rem] border border-gray-100 dark:border-gray-800 shadow-sm">

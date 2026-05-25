@@ -148,7 +148,7 @@ include 'includes/header.php';
                     <?php if (!empty($contest['description'])): ?>
                     <div class="p-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                         <h3 class="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">About This Contest</h3>
-                        <p class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed"><?php echo nl2br(e($contest['description'])); ?></p>
+                        <div class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed rich-content"><?php echo safe_rich_html($contest['description'] ?? ''); ?></div>
                     </div>
                     <?php endif; ?>
 
@@ -190,7 +190,7 @@ include 'includes/header.php';
                     <?php if (!empty($contest['terms_conditions'])): ?>
                     <div class="p-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                         <h3 class="text-sm font-black uppercase tracking-widest text-gray-400 mb-4">Rules & Requirements</h3>
-                        <div class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line"><?php echo e($contest['terms_conditions']); ?></div>
+                        <div class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed rich-content"><?php echo safe_rich_html($contest['terms_conditions'] ?? ''); ?></div>
                     </div>
                     <?php endif; ?>
 

@@ -98,8 +98,8 @@ include '../includes/header.php';
                                     <span class="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3 text-sm">📝</span>
                                     The Brief
                                 </h3>
-                                <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-lg prose dark:prose-invert max-w-none">
-                                    <?php echo nl2br(e($camp['main_message'])); ?>
+                                <div class="text-gray-700 dark:text-gray-300 leading-relaxed text-lg rich-content">
+                                    <?php echo safe_rich_html($camp['main_message'] ?? ''); ?>
                                 </div>
                             </div>
 
@@ -132,10 +132,10 @@ include '../includes/header.php';
                                     <span class="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mr-3 text-sm">🗣️</span>
                                     Key Messaging / Script
                                 </h3>
-                                <div class="p-8 bg-gray-50 dark:bg-gray-800/50 rounded-[2rem] border-2 border-dashed border-gray-200 dark:border-gray-700 italic text-gray-700 dark:text-gray-300 text-lg text-center relative">
-                                    <span class="absolute top-4 left-4 text-4xl text-primary/20 leading-none">“</span>
-                                    <?php echo nl2br(e($camp['words_to_say'])); ?>
-                                    <span class="absolute bottom-4 right-4 text-4xl text-primary/20 leading-none">”</span>
+                                <div class=”p-8 bg-gray-50 dark:bg-gray-800/50 rounded-[2rem] border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-lg relative rich-content”>
+                                    <span class=”absolute top-4 left-4 text-4xl text-primary/20 leading-none”>”</span>
+                                    <?php echo safe_rich_html($camp['words_to_say'] ?? ''); ?>
+                                    <span class=”absolute bottom-4 right-4 text-4xl text-primary/20 leading-none”>”</span>
                                 </div>
                             </div>
                         </div>

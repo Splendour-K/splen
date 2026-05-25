@@ -113,6 +113,39 @@ function e($text) {
     return htmlspecialchars($text, ENT_QUOTES, "UTF-8");
 }
 
+/**
+ * Safely render HTML produced by a rich text editor (Quill, etc.).
+ *
+ * • Backward-compatible: stored plain-text (no HTML tags) is displayed
+ *   with preserved line-breaks, exactly as before.
+ * • Quill's "empty" state (<p><br></p>) returns an empty string.
+ * • Real HTML is stripped to a safe allowlist — no scripts, no event
+ *   handlers, no javascript: URLs.
+ */
+function safe_rich_html(string $html): string {
+    if (empty($html)) return '';
+
+    // Quill's empty state or pure whitespace → treat as empty
+    if (trim(strip_tags($html)) === '') return '';
+
+    // Backward-compat: plain-text records (no HTML tags) keep line-breaks
+    if ($html === strip_tags($html)) {
+        return nl2br(htmlspecialchars($html, ENT_QUOTES, 'UTF-8'));
+    }
+
+    // Allowlist: safe formatting tags only
+    $allowed = '<p><br><strong><b><em><i><u><s><strike><ul><ol><li><h1><h2><h3><h4><blockquote><span><a>';
+    $clean   = strip_tags($html, $allowed);
+
+    // Strip event-handler attributes (onclick, onload, onerror …)
+    $clean = preg_replace('/\s+on\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>\/]+)/i', '', $clean);
+
+    // Neuter javascript: in href / src
+    $clean = preg_replace('/\b(href|src)\s*=\s*["\']?\s*javascript:[^"\'>\s]*/i', '$1="#"', $clean);
+
+    return $clean;
+}
+
 function require_creator_record($creator, $redirect = true) {
     if ($creator !== false && is_array($creator) && !empty($creator['id'])) {
         return true;

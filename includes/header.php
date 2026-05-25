@@ -109,6 +109,25 @@
             font-weight: 500;
         }
 
+        /* ── Rich Content Display (from rich-text editor output) ── */
+        .rich-content p               { margin-bottom: 0.35em; }
+        .rich-content p:last-child    { margin-bottom: 0; }
+        .rich-content h2              { font-size: 1.15em; font-weight: 700; margin: 0.6em 0 0.25em; }
+        .rich-content h3              { font-size: 1.05em; font-weight: 700; margin: 0.5em 0 0.2em; }
+        .rich-content strong,
+        .rich-content b               { font-weight: 700; }
+        .rich-content em,
+        .rich-content i               { font-style: italic; }
+        .rich-content u               { text-decoration: underline; }
+        .rich-content s,
+        .rich-content strike          { text-decoration: line-through; }
+        .rich-content ul              { list-style: disc;    padding-left: 1.4em; margin: 0.3em 0; }
+        .rich-content ol              { list-style: decimal; padding-left: 1.4em; margin: 0.3em 0; }
+        .rich-content li              { margin-bottom: 0.2em; }
+        .rich-content blockquote      { border-left: 3px solid #ea580c; padding-left: 0.9em; font-style: italic; margin: 0.5em 0; opacity: 0.85; }
+        .rich-content a               { color: #ea580c; text-decoration: underline; }
+        .rich-content a:hover         { opacity: 0.75; }
+
         /* ── Floating Sticky Navigation ── */
         #nav {
             position: fixed !important;

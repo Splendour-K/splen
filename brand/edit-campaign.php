@@ -156,11 +156,13 @@ include '../includes/header.php';
                     <div class="space-y-8">
                         <div>
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Main Message / Brief</label>
-                            <textarea name="main_message" rows="5" required class="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium" placeholder="What should the creators do?"><?php echo e($campaign['main_message']); ?></textarea>
+                            <div class="ql-wrap" id="main_message_wrap"><div id="main_message_editor"></div></div>
+                            <input type="hidden" name="main_message" id="main_message_h">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Key Phrases / Words to Say</label>
-                            <textarea name="words_to_say" rows="3" class="w-full px-6 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium" placeholder="Keep it authentic..."><?php echo e($campaign['words_to_say']); ?></textarea>
+                            <div class="ql-wrap" id="words_to_say_wrap"><div id="words_to_say_editor"></div></div>
+                            <input type="hidden" name="words_to_say" id="words_to_say_h">
                         </div>
                     </div>
                 </section>
@@ -238,10 +240,75 @@ include '../includes/header.php';
                     <a href="<?php echo APP_URL; ?>brand/my-campaigns.php" class="px-8 py-5 bg-gray-100 dark:bg-gray-800 text-gray-500 font-bold rounded-2xl flex items-center justify-center">Cancel</a>
                 </div>
             </form>
+
+            <!-- ── Quill Rich Text Editor ── -->
+            <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+            <style>
+            .ql-wrap{border-radius:1rem;overflow:hidden;border:1.5px solid #d1d5db;background:#f8fafc;transition:border-color .2s,box-shadow .2s}
+            .ql-wrap:focus-within{border-color:#ea580c!important;box-shadow:0 0 0 4px rgba(234,88,12,.12);outline:none}
+            .dark .ql-wrap{background:#1e293b;border-color:#374151}
+            .dark .ql-wrap:focus-within{border-color:#ea580c!important;box-shadow:0 0 0 4px rgba(234,88,12,.15)}
+            .ql-toolbar.ql-snow{border:none!important;border-bottom:1px solid #e2e8f0!important;background:#f1f5f9;padding:8px 12px;font-family:'Urbanist',sans-serif!important}
+            .dark .ql-toolbar.ql-snow{background:#0f172a;border-bottom-color:#1e293b!important}
+            .dark .ql-toolbar .ql-stroke{stroke:#94a3b8}
+            .dark .ql-toolbar .ql-fill{fill:#94a3b8}
+            .dark .ql-toolbar button:hover .ql-stroke,.dark .ql-toolbar button.ql-active .ql-stroke{stroke:#f8fafc}
+            .dark .ql-toolbar button:hover .ql-fill,.dark .ql-toolbar button.ql-active .ql-fill{fill:#f8fafc}
+            .dark .ql-toolbar .ql-picker-label{color:#94a3b8}
+            .dark .ql-toolbar .ql-picker-options{background:#0f172a;border-color:#334155}
+            .dark .ql-toolbar .ql-picker-item:hover,.dark .ql-toolbar .ql-picker-item.ql-selected,.dark .ql-toolbar .ql-active .ql-picker-label{color:#f8fafc}
+            .ql-container.ql-snow{border:none!important;font-family:'Urbanist',sans-serif!important;font-size:.9375rem}
+            .ql-editor{min-height:8rem;padding:14px 18px;color:#0f172a}
+            .ql-editor.ql-blank::before{color:#94a3b8;font-style:normal;left:18px;right:18px}
+            .dark .ql-editor{color:#f8fafc}
+            .dark .ql-editor.ql-blank::before{color:#475569}
+            .ql-editor p{margin-bottom:.25em}
+            .ql-editor h2{font-size:1.2em;font-weight:700}
+            .ql-editor h3{font-size:1.05em;font-weight:600}
+            .ql-editor ul,.ql-editor ol{padding-left:1.5em}
+            .ql-editor blockquote{border-left:4px solid #ea580c;padding-left:1em;opacity:.8;margin:.3em 0}
+            .ql-editor a{color:#ea580c;text-decoration:underline}
+            </style>
+            <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+            <script>
+            (function() {
+                const TB = [
+                    [{ header: [2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['blockquote', 'link'],
+                    ['clean']
+                ];
+                const qlMain = new Quill('#main_message_editor', {
+                    theme: 'snow',
+                    placeholder: 'What should creators do?',
+                    modules: { toolbar: TB }
+                });
+                qlMain.root.innerHTML = <?php echo json_encode($campaign['main_message'] ?? ''); ?>;
+
+                const qlWords = new Quill('#words_to_say_editor', {
+                    theme: 'snow',
+                    placeholder: 'Key phrases to include...',
+                    modules: { toolbar: TB }
+                });
+                qlWords.root.innerHTML = <?php echo json_encode($campaign['words_to_say'] ?? ''); ?>;
+
+                // Sync to hidden inputs on each change
+                qlMain.on('text-change',  () => { document.getElementById('main_message_h').value  = qlMain.root.innerHTML; });
+                qlWords.on('text-change', () => { document.getElementById('words_to_say_h').value  = qlWords.root.innerHTML; });
+
+                // Also sync on submit (belt-and-suspenders)
+                document.querySelector('form').addEventListener('submit', function() {
+                    document.getElementById('main_message_h').value  = qlMain.root.innerHTML;
+                    document.getElementById('words_to_say_h').value  = qlWords.root.innerHTML;
+                });
+            })();
+            </script>
+
         </main>
     </div>
 </div>
 
-<?php 
+<?php
 include '../includes/footer.php';
 ?>

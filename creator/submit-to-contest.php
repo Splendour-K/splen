@@ -168,14 +168,14 @@ include '../includes/header.php';
                     <?php if ($contest['description']): ?>
                         <div>
                             <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">About this contest:</p>
-                            <p class="text-gray-600 dark:text-gray-400 text-sm"><?php echo nl2br(e($contest['description'])); ?></p>
+                            <div class="text-gray-600 dark:text-gray-400 text-sm rich-content"><?php echo safe_rich_html($contest['description'] ?? ''); ?></div>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($contest['terms_conditions']): ?>
                         <div>
                             <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Rules & Requirements:</p>
-                            <p class="text-gray-600 dark:text-gray-400 text-sm"><?php echo nl2br(e($contest['terms_conditions'])); ?></p>
+                            <div class="text-gray-600 dark:text-gray-400 text-sm rich-content"><?php echo safe_rich_html($contest['terms_conditions'] ?? ''); ?></div>
                         </div>
                     <?php endif; ?>
                 </section>
