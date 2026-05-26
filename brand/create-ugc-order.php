@@ -36,49 +36,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($validation_error !== true) {
             $error = $validation_error;
         } else {
-            // ── Wallet check ─────────────────────────────────────
             $creator_count_num = max(1, (int)$creator_count_raw);
             $required_budget   = $budget_num * $creator_count_num;
-            $wallet_check      = check_wallet_for_publish($brand['id'], $required_budget, $currency);
 
-            if (!$wallet_check['ok']) {
-                $error = wallet_error_message($wallet_check);
-            } else {
-                $sql = "INSERT INTO ugc_orders (
-                    brand_id, title, product_name, full_description, budget_per_creator, creator_count, currency,
-                    deadline, usage_rights_package, revision_limit, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
+            $sql = "INSERT INTO ugc_orders (
+                brand_id, title, product_name, full_description, budget_per_creator, creator_count, currency,
+                deadline, usage_rights_package, revision_limit, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
 
-                $stmt = $pdo->prepare($sql);
-                try {
-                    $stmt->execute([
-                        $brand['id'], $title, $product_name, $full_description, $budget_num, $creator_count_num, $currency,
-                        $deadline, $usage_rights_pkg, (int)$revision_limit
-                    ]);
-                    $ugc_order_id = (int)$pdo->lastInsertId();
+            $stmt = $pdo->prepare($sql);
+            try {
+                $stmt->execute([
+                    $brand['id'], $title, $product_name, $full_description, $budget_num, $creator_count_num, $currency,
+                    $deadline, $usage_rights_pkg, (int)$revision_limit
+                ]);
+                $ugc_order_id = (int)$pdo->lastInsertId();
 
-                    // Reserve wallet budget
-                    reserve_wallet_budget(
+                // Best-effort wallet reservation — non-blocking
+                $wallet_reserved = false;
+                $wc = check_wallet_for_publish($brand['id'], $required_budget, $currency);
+                if ($wc['ok']) {
+                    $wallet_reserved = reserve_wallet_budget(
                         $brand['id'], $required_budget, 'ugc_order_reserve', 'ugc_order', $ugc_order_id,
                         "UGC Order reserved: {$title} ({$creator_count_num} creator(s) × " . format_money($budget_num, $currency) . ")"
                     );
-
-                    $creator_stmt = $pdo->query("SELECT user_id FROM creators");
-                    $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
-
-                    create_notification_batch(
-                        $creator_user_ids,
-                        'New UGC Opportunity',
-                        $brand['brand_name'] . ' just published a new UGC order: ' . $title,
-                        'ugc_order',
-                        'creator/submit-ugc-order.php?order_id=' . $ugc_order_id,
-                        'ugc_order',
-                        $ugc_order_id
-                    );
-                    $success = "UGC Order created successfully! " . format_money($required_budget, $currency) . " has been reserved from your wallet.";
-                } catch (Exception $e) {
-                    $error = "Error: " . $e->getMessage();
                 }
+
+                try {
+                    $creator_stmt = $pdo->query("SELECT user_id FROM creators WHERE user_id IS NOT NULL");
+                    $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
+                    if ($creator_user_ids) {
+                        create_notification_batch(
+                            $creator_user_ids,
+                            'New UGC Opportunity',
+                            $brand['brand_name'] . ' just published a new UGC order: ' . $title,
+                            'ugc_order',
+                            'creator/submit-ugc-order.php?order_id=' . $ugc_order_id,
+                            'ugc_order',
+                            $ugc_order_id
+                        );
+                    }
+                } catch (Exception $notif_e) {
+                    error_log('UGC order notification failed: ' . $notif_e->getMessage());
+                }
+
+                $wallet_note = $wallet_reserved
+                    ? format_money($required_budget, $currency) . " has been reserved from your wallet."
+                    : "Note: Wallet reservation pending — please ensure your wallet is funded with " . $currency . ".";
+                $success = "UGC Order created successfully! " . $wallet_note;
+            } catch (Exception $e) {
+                $error = "Error creating UGC order: " . $e->getMessage();
             }
         }
     }
@@ -113,8 +120,8 @@ include '../includes/header.php';
             <?php else: ?>
 
             <?php if ($error): ?>
-                <div class="p-6 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-400 font-bold flex items-center">
-                    <span class="mr-3 text-xl">⚠️</span> <?php echo e($error); ?>
+                <div class="p-6 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-400 font-bold">
+                    <p class="flex items-start gap-3"><span class="text-xl flex-shrink-0">⚠️</span><span><?php echo nl2br(e($error)); ?></span></p>
                 </div>
             <?php endif; ?>
 

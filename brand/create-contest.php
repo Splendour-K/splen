@@ -52,117 +52,118 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($validation_error !== true) {
             $error = $validation_error;
         } else {
-            // ── Wallet check ─────────────────────────────────────
-            // Contest budget = total prize pool + CPM budget (if set)
+            // Compute total required budget (prize pool + optional CPM reserve)
             $cpm_rate_val   = $cpm_enabled ? (float)$pay_per_1000_views_raw : 0;
             $cpm_cap_val    = $cpm_enabled ? (int)$max_payable_views_raw    : 0;
             $cpm_total      = ($cpm_rate_val > 0 && $cpm_cap_val > 0)
                               ? ($cpm_rate_val * ($cpm_cap_val / 1000) * $winners_num)
                               : 0;
             $required_budget = $budget_num + $cpm_total;
-            $wallet_check    = check_wallet_for_publish($brand['id'], $required_budget, $currency);
 
-            if (!$wallet_check['ok']) {
-                $error = wallet_error_message($wallet_check);
-            } else {
-                $sql = "INSERT INTO contests (
-                    brand_id, title, description, category, total_contest_budget, currency,
-                    submission_deadline, winner_announcement_date, number_of_winners, terms_conditions, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')";
+            $sql = "INSERT INTO contests (
+                brand_id, title, description, category, total_contest_budget, currency,
+                submission_deadline, winner_announcement_date, number_of_winners, terms_conditions, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')";
 
-                $stmt = $pdo->prepare($sql);
-                try {
-                    $stmt->execute([
-                        $brand['id'], $title, $description, $category, $budget_num, $currency,
-                        $submission_deadline, $winner_announcement_date, $winners_num, $terms_conditions
-                    ]);
-                    $contest_id = $pdo->lastInsertId();
+            $stmt = $pdo->prepare($sql);
+            try {
+                $stmt->execute([
+                    $brand['id'], $title, $description, $category, $budget_num, $currency,
+                    $submission_deadline, $winner_announcement_date ?: null, $winners_num, $terms_conditions
+                ]);
+                $contest_id = $pdo->lastInsertId();
 
-                    // Save featured image (optional — requires fix_featured_images.sql)
-                    if (!empty($_FILES['featured_image']['name']) && $_FILES['featured_image']['error'] === UPLOAD_ERR_OK) {
-                        $fi_dir  = "../assets/uploads/listings/";
-                        if (!is_dir($fi_dir)) mkdir($fi_dir, 0755, true);
-                        $fi_ext  = strtolower(pathinfo($_FILES['featured_image']['name'], PATHINFO_EXTENSION));
-                        $fi_size = $_FILES['featured_image']['size'];
-                        if (in_array($fi_ext, ['jpg','jpeg','png','webp']) && $fi_size <= 5 * 1024 * 1024) {
-                            $fi_name = "contest_{$contest_id}_" . time() . ".{$fi_ext}";
-                            if (move_uploaded_file($_FILES['featured_image']['tmp_name'], $fi_dir . $fi_name)) {
-                                try {
-                                    $pdo->prepare("UPDATE contests SET featured_image = ? WHERE id = ?")
-                                        ->execute(["assets/uploads/listings/{$fi_name}", $contest_id]);
-                                } catch (\Exception $fi_e) {
-                                    error_log("featured_image (contests) update failed (run fix_featured_images.sql): " . $fi_e->getMessage());
-                                }
+                // Save featured image (optional — column added by fix_contest_launch.sql)
+                if (!empty($_FILES['featured_image']['name']) && $_FILES['featured_image']['error'] === UPLOAD_ERR_OK) {
+                    $fi_dir  = "../assets/uploads/listings/";
+                    if (!is_dir($fi_dir)) mkdir($fi_dir, 0755, true);
+                    $fi_ext  = strtolower(pathinfo($_FILES['featured_image']['name'], PATHINFO_EXTENSION));
+                    $fi_size = $_FILES['featured_image']['size'];
+                    if (in_array($fi_ext, ['jpg','jpeg','png','webp']) && $fi_size <= 5 * 1024 * 1024) {
+                        $fi_name = "contest_{$contest_id}_" . time() . ".{$fi_ext}";
+                        if (move_uploaded_file($_FILES['featured_image']['tmp_name'], $fi_dir . $fi_name)) {
+                            try {
+                                $pdo->prepare("UPDATE contests SET featured_image = ? WHERE id = ?")
+                                    ->execute(["assets/uploads/listings/{$fi_name}", $contest_id]);
+                            } catch (\Exception $fi_e) {
+                                error_log("featured_image (contests) update failed: " . $fi_e->getMessage());
                             }
                         }
                     }
+                }
 
-                    // Save reference links (optional)
-                    if (!empty($reference_links_raw)) {
-                        try {
-                            $rl_stmt = $pdo->prepare(
-                                "INSERT INTO contest_reference_links (contest_id, link_url, link_type) VALUES (?, ?, 'inspiration')"
-                            );
-                            foreach ($reference_links_raw as $rl) {
-                                if (strlen($rl) >= 10) {
-                                    $rl_stmt->execute([$contest_id, $rl]);
-                                }
+                // Save reference links (optional)
+                if (!empty($reference_links_raw)) {
+                    try {
+                        $rl_stmt = $pdo->prepare(
+                            "INSERT INTO contest_reference_links (contest_id, link_url, link_type) VALUES (?, ?, 'inspiration')"
+                        );
+                        foreach ($reference_links_raw as $rl) {
+                            if (strlen($rl) >= 10) {
+                                $rl_stmt->execute([$contest_id, $rl]);
                             }
-                        } catch (\Exception $rl_e) {
-                            error_log('contest_reference_links insert failed: ' . $rl_e->getMessage());
                         }
+                    } catch (\Exception $rl_e) {
+                        error_log('contest_reference_links insert failed: ' . $rl_e->getMessage());
                     }
+                }
 
-                    // Save optional CPM fields (graceful — only works after fix_contests_v2.sql is run)
-                    if ($cpm_enabled && $cpm_rate_val > 0) {
-                        try {
-                            $pdo->prepare("UPDATE contests SET pay_per_1000_views = ?, max_payable_views_per_creator = ?, cpm_budget = ? WHERE id = ?")
-                                ->execute([$cpm_rate_val, $cpm_cap_val ?: null, $cpm_total ?: null, $contest_id]);
-                        } catch (Exception $cpm_e) { /* CPM columns not yet migrated — run fix_contests_v2.sql */ }
-                    }
+                // Save optional CPM fields (graceful — only works after fix_contest_launch.sql is run)
+                if ($cpm_enabled && $cpm_rate_val > 0) {
+                    try {
+                        $pdo->prepare("UPDATE contests SET pay_per_1000_views = ?, max_payable_views_per_creator = ?, cpm_budget = ? WHERE id = ?")
+                            ->execute([$cpm_rate_val, $cpm_cap_val ?: null, $cpm_total ?: null, $contest_id]);
+                    } catch (Exception $cpm_e) { /* CPM columns not yet migrated */ }
+                }
 
-                    // Reserve wallet budget
-                    $reserve_desc = "Contest reserved: {$title} (prize pool " . format_money($budget_num, $currency) .
-                                    ($cpm_total > 0 ? " + CPM " . format_money($cpm_total, $currency) : '') . ")";
-                    reserve_wallet_budget(
+                // Best-effort wallet reservation — non-blocking (does not prevent launch)
+                $reserve_desc = "Contest reserved: {$title} (prize pool " . format_money($budget_num, $currency) .
+                                ($cpm_total > 0 ? " + CPM " . format_money($cpm_total, $currency) : '') . ")";
+                $wallet_reserved = false;
+                $wc = check_wallet_for_publish($brand['id'], $required_budget, $currency);
+                if ($wc['ok']) {
+                    $wallet_reserved = reserve_wallet_budget(
                         $brand['id'], $required_budget, 'contest_reserve', 'contest', (int)$contest_id, $reserve_desc
                     );
-
-                    // Save individual prize amounts entered by the brand
-                    $rew_stmt = $pdo->prepare("INSERT INTO contest_rewards (contest_id, position_number, position_name, reward_amount, currency) VALUES (?, ?, ?, ?, ?)");
-                    foreach ($prize_amounts_raw as $pi => $amt) {
-                        if ($amt <= 0) continue;
-                        $pos_num  = $pi + 1;
-                        $pos_name = $position_names_raw[$pi] ?? '';
-                        if ($pos_name === '') {
-                            $default_names = ['1st Place','2nd Place','3rd Place','4th Place','5th Place'];
-                            $pos_name = $default_names[$pi] ?? ('Position ' . $pos_num);
-                        }
-                        $rew_stmt->execute([$contest_id, $pos_num, $pos_name, $amt, $currency]);
-                    }
-
-                    // Notify all creators of the new contest
-                    try {
-                        $cids = $pdo->query("SELECT user_id FROM creators WHERE user_id IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
-                        if ($cids) {
-                            create_notification_batch(
-                                $cids,
-                                'New Contest: ' . mb_substr($title, 0, 60),
-                                ($brand['brand_name'] ?? 'A brand') . ' launched a new contest — ' . $currency . ' ' . number_format($budget_num, 0) . ' prize pool. Enter now!',
-                                'contest',
-                                'contest-board.php',
-                                'contest',
-                                (int)$contest_id
-                            );
-                        }
-                    } catch (Exception $notif_err) {
-                        error_log('Contest notification failed: ' . $notif_err->getMessage());
-                    }
-
-                    $success = "Contest created successfully! " . format_money($required_budget, $currency) . " has been reserved from your wallet.";
-                } catch (Exception $e) {
-                    $error = "Error: " . $e->getMessage();
                 }
+
+                // Save individual prize amounts
+                $rew_stmt = $pdo->prepare("INSERT INTO contest_rewards (contest_id, position_number, position_name, reward_amount, currency) VALUES (?, ?, ?, ?, ?)");
+                foreach ($prize_amounts_raw as $pi => $amt) {
+                    if ($amt <= 0) continue;
+                    $pos_num  = $pi + 1;
+                    $pos_name = $position_names_raw[$pi] ?? '';
+                    if ($pos_name === '') {
+                        $default_names = ['1st Place','2nd Place','3rd Place','4th Place','5th Place'];
+                        $pos_name = $default_names[$pi] ?? ('Position ' . $pos_num);
+                    }
+                    $rew_stmt->execute([$contest_id, $pos_num, $pos_name, $amt, $currency]);
+                }
+
+                // Notify all creators of the new contest
+                try {
+                    $cids = $pdo->query("SELECT user_id FROM creators WHERE user_id IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN);
+                    if ($cids) {
+                        create_notification_batch(
+                            $cids,
+                            'New Contest: ' . mb_substr($title, 0, 60),
+                            ($brand['brand_name'] ?? 'A brand') . ' launched a new contest — ' . $currency . ' ' . number_format($budget_num, 0) . ' prize pool. Enter now!',
+                            'contest',
+                            'contest-board.php',
+                            'contest',
+                            (int)$contest_id
+                        );
+                    }
+                } catch (Exception $notif_err) {
+                    error_log('Contest notification failed: ' . $notif_err->getMessage());
+                }
+
+                $wallet_note = $wallet_reserved
+                    ? format_money($required_budget, $currency) . " has been reserved from your wallet."
+                    : "Note: Wallet reservation pending — please ensure your wallet is funded with " . $currency . ".";
+                $success = "Contest launched successfully! " . $wallet_note;
+            } catch (Exception $e) {
+                $error = "Error creating contest: " . $e->getMessage();
             }
         }
     }
@@ -197,8 +198,8 @@ include '../includes/header.php';
             <?php else: ?>
 
             <?php if ($error): ?>
-                <div class="p-6 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-400 font-bold flex items-center">
-                    <span class="mr-3 text-xl">⚠️</span> <?php echo e($error); ?>
+                <div class="p-6 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-800 dark:text-red-400 font-bold">
+                    <p class="flex items-start gap-3"><span class="text-xl flex-shrink-0">⚠️</span><span><?php echo nl2br(e($error)); ?></span></p>
                 </div>
             <?php endif; ?>
 

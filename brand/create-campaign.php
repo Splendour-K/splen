@@ -55,88 +55,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $quota['can_create']) {
         if ($validation_error !== true) {
             $error = $validation_error;
         } else {
-            // ── Wallet check ─────────────────────────────────────
             $creator_count_num  = max(1, (int)$creator_count);
             $required_budget    = $budget_num * $creator_count_num;
-            $wallet_check       = check_wallet_for_publish($brand['id'], $required_budget, $currency);
 
-            if (!$wallet_check['ok']) {
-                $error = wallet_error_message($wallet_check);
-            } else {
-                $sql = "INSERT INTO campaigns (
-                    brand_id, title, product_name, category, goal, location_country, location_city,
-                    preferred_university, video_type, video_length, creator_count, budget_per_creator, currency,
-                    deadline, main_message, required_shots, words_to_say, words_to_avoid, call_to_action,
-                    posting_required, usage_rights_package, product_shipping_details, revision_limit, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
+            $sql = "INSERT INTO campaigns (
+                brand_id, title, product_name, category, goal, location_country, location_city,
+                preferred_university, video_type, video_length, creator_count, budget_per_creator, currency,
+                deadline, main_message, required_shots, words_to_say, words_to_avoid, call_to_action,
+                posting_required, usage_rights_package, product_shipping_details, revision_limit, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')";
 
-                $stmt = $pdo->prepare($sql);
-                try {
-                    $stmt->execute([
-                        $brand['id'], $title, $product_name, $category, $goal, $location_country, $location_city,
-                        $preferred_university, $video_type, $video_length, $creator_count_num, $budget_num, $currency,
-                        $deadline, $main_message, $required_shots, $words_to_say, $words_to_avoid, $call_to_action,
-                        $posting_required, $usage_rights_package, $product_shipping_details, (int)$revision_limit
-                    ]);
-                    $campaign_id = (int)$pdo->lastInsertId();
+            $stmt = $pdo->prepare($sql);
+            try {
+                $stmt->execute([
+                    $brand['id'], $title, $product_name, $category, $goal, $location_country, $location_city,
+                    $preferred_university, $video_type, $video_length, $creator_count_num, $budget_num, $currency,
+                    $deadline, $main_message, $required_shots, $words_to_say, $words_to_avoid, $call_to_action,
+                    $posting_required, $usage_rights_package, $product_shipping_details, (int)$revision_limit
+                ]);
+                $campaign_id = (int)$pdo->lastInsertId();
 
-                    // Save featured image (optional — requires fix_featured_images.sql)
-                    if (!empty($_FILES['featured_image']['name']) && $_FILES['featured_image']['error'] === UPLOAD_ERR_OK) {
-                        $fi_dir  = "../assets/uploads/listings/";
-                        if (!is_dir($fi_dir)) mkdir($fi_dir, 0755, true);
-                        $fi_ext  = strtolower(pathinfo($_FILES['featured_image']['name'], PATHINFO_EXTENSION));
-                        $fi_size = $_FILES['featured_image']['size'];
-                        if (in_array($fi_ext, ['jpg','jpeg','png','webp']) && $fi_size <= 5 * 1024 * 1024) {
-                            $fi_name = "campaign_{$campaign_id}_" . time() . ".{$fi_ext}";
-                            if (move_uploaded_file($_FILES['featured_image']['tmp_name'], $fi_dir . $fi_name)) {
-                                try {
-                                    $pdo->prepare("UPDATE campaigns SET featured_image = ? WHERE id = ?")
-                                        ->execute(["assets/uploads/listings/{$fi_name}", $campaign_id]);
-                                } catch (\Exception $fi_e) {
-                                    error_log("featured_image update failed (run fix_featured_images.sql): " . $fi_e->getMessage());
-                                }
+                // Save featured image (optional)
+                if (!empty($_FILES['featured_image']['name']) && $_FILES['featured_image']['error'] === UPLOAD_ERR_OK) {
+                    $fi_dir  = "../assets/uploads/listings/";
+                    if (!is_dir($fi_dir)) mkdir($fi_dir, 0755, true);
+                    $fi_ext  = strtolower(pathinfo($_FILES['featured_image']['name'], PATHINFO_EXTENSION));
+                    $fi_size = $_FILES['featured_image']['size'];
+                    if (in_array($fi_ext, ['jpg','jpeg','png','webp']) && $fi_size <= 5 * 1024 * 1024) {
+                        $fi_name = "campaign_{$campaign_id}_" . time() . ".{$fi_ext}";
+                        if (move_uploaded_file($_FILES['featured_image']['tmp_name'], $fi_dir . $fi_name)) {
+                            try {
+                                $pdo->prepare("UPDATE campaigns SET featured_image = ? WHERE id = ?")
+                                    ->execute(["assets/uploads/listings/{$fi_name}", $campaign_id]);
+                            } catch (\Exception $fi_e) {
+                                error_log("featured_image update failed: " . $fi_e->getMessage());
                             }
                         }
                     }
+                }
 
-                    // Save reference links (optional — table must exist from hostinger_setup.sql)
-                    if (!empty($reference_links_raw)) {
-                        try {
-                            $rl_stmt = $pdo->prepare(
-                                "INSERT INTO campaign_reference_links (campaign_id, link_url, link_type) VALUES (?, ?, 'inspiration')"
-                            );
-                            foreach ($reference_links_raw as $rl) {
-                                if (strlen($rl) >= 10) {
-                                    $rl_stmt->execute([$campaign_id, $rl]);
-                                }
+                // Save reference links (optional)
+                if (!empty($reference_links_raw)) {
+                    try {
+                        $rl_stmt = $pdo->prepare(
+                            "INSERT INTO campaign_reference_links (campaign_id, link_url, link_type) VALUES (?, ?, 'inspiration')"
+                        );
+                        foreach ($reference_links_raw as $rl) {
+                            if (strlen($rl) >= 10) {
+                                $rl_stmt->execute([$campaign_id, $rl]);
                             }
-                        } catch (\Exception $rl_e) {
-                            error_log('campaign_reference_links insert failed: ' . $rl_e->getMessage());
                         }
+                    } catch (\Exception $rl_e) {
+                        error_log('campaign_reference_links insert failed: ' . $rl_e->getMessage());
                     }
+                }
 
-                    // Reserve wallet budget
-                    reserve_wallet_budget(
+                // Best-effort wallet reservation — non-blocking
+                $wallet_reserved = false;
+                $wc = check_wallet_for_publish($brand['id'], $required_budget, $currency);
+                if ($wc['ok']) {
+                    $wallet_reserved = reserve_wallet_budget(
                         $brand['id'], $required_budget, 'campaign_reserve', 'campaign', $campaign_id,
                         "Campaign reserved: {$title} ({$creator_count_num} creator(s) × " . format_money($budget_num, $currency) . ")"
                     );
-
-                    $creator_stmt = $pdo->query("SELECT user_id FROM creators");
-                    $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
-
-                    create_notification_batch(
-                        $creator_user_ids,
-                        'New Campaign Brief',
-                        $brand['brand_name'] . ' published a new campaign: ' . $title,
-                        'campaign_published',
-                        'creator/campaign-view.php?id=' . $campaign_id,
-                        'campaign',
-                        $campaign_id
-                    );
-                    $success = "Campaign created successfully! " . format_money($required_budget, $currency) . " has been reserved from your wallet.";
-                } catch (Exception $e) {
-                    $error = "Error: " . $e->getMessage();
                 }
+
+                try {
+                    $creator_stmt = $pdo->query("SELECT user_id FROM creators WHERE user_id IS NOT NULL");
+                    $creator_user_ids = $creator_stmt->fetchAll(PDO::FETCH_COLUMN);
+                    if ($creator_user_ids) {
+                        create_notification_batch(
+                            $creator_user_ids,
+                            'New Campaign Brief',
+                            $brand['brand_name'] . ' published a new campaign: ' . $title,
+                            'campaign_published',
+                            'creator/campaign-view.php?id=' . $campaign_id,
+                            'campaign',
+                            $campaign_id
+                        );
+                    }
+                } catch (Exception $notif_e) {
+                    error_log('Campaign notification failed: ' . $notif_e->getMessage());
+                }
+
+                $wallet_note = $wallet_reserved
+                    ? format_money($required_budget, $currency) . " has been reserved from your wallet."
+                    : "Note: Wallet reservation pending — please ensure your wallet is funded with " . $currency . ".";
+                $success = "Campaign created successfully! " . $wallet_note;
+            } catch (Exception $e) {
+                $error = "Error creating campaign: " . $e->getMessage();
             }
         }
     }

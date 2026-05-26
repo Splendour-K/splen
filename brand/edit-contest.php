@@ -81,18 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            // If brand is increasing the budget, check wallet for the extra amount
+            // Track whether wallet can cover a budget increase (non-blocking)
+            $wallet_can_cover_increase = true;
             if (!$error && $budget_increase > 0.01) {
-                $contest_currency = $contest['currency'];
-                if (strtoupper($wallet_currency) !== strtoupper($contest_currency)) {
-                    $error = "Your wallet currency ({$wallet_currency}) doesn't match the contest currency ({$contest_currency}). Please contact admin.";
-                } elseif ($wallet_available < $budget_increase) {
-                    $shortfall = $budget_increase - $wallet_available;
-                    $error = "Insufficient wallet balance to increase the prize pool by " . format_money($budget_increase, $contest_currency) . ". "
-                           . "Available: " . format_money($wallet_available, $wallet_currency) . ". "
-                           . "You need " . format_money($shortfall, $wallet_currency) . " more. "
-                           . "Please top up your wallet first.";
-                }
+                $wc_edit = check_wallet_for_publish($brand['id'], $budget_increase, $contest['currency']);
+                $wallet_can_cover_increase = $wc_edit['ok'];
             }
         }
 
@@ -140,10 +133,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $rew_stmt->execute([$id, $pi + 1, $pos_name ?: ('Position ' . ($pi + 1)), $amt, $contest['currency']]);
                             $new_total += $amt;
                         }
-                        // If prize pool increased, reserve the extra from wallet
+                        // If prize pool increased, attempt best-effort wallet reservation
                         $original_budget = (float)$contest['total_contest_budget'];
                         $budget_increase = $new_total - $original_budget;
-                        if ($budget_increase > 0.01) {
+                        if ($budget_increase > 0.01 && $wallet_can_cover_increase) {
                             reserve_wallet_budget(
                                 $brand['id'], $budget_increase, 'contest_reserve', 'contest', $id,
                                 "Prize pool increase for contest #{$id}: +{$budget_increase} {$contest['currency']}"
@@ -164,7 +157,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     } catch (Exception $rl_e) {}
 
-                    $success = "Contest updated successfully!";
+                    $wallet_suffix = '';
+                    if (isset($budget_increase) && $budget_increase > 0.01 && !$wallet_can_cover_increase) {
+                        $wallet_suffix = " Note: Wallet reservation pending for the prize pool increase — please fund your wallet.";
+                    }
+                    $success = "Contest updated successfully!" . $wallet_suffix;
 
                     // Reload contest data
                     $stmt = $pdo->prepare("SELECT * FROM contests WHERE id = ?");

@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     pay_per_1000_views DECIMAL(10,2) DEFAULT 0,
     max_payable_views INT DEFAULT 0,
     is_featured TINYINT(1) DEFAULT 0,
+    featured_image VARCHAR(255),
     admin_note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE CASCADE
@@ -375,6 +376,7 @@ CREATE TABLE IF NOT EXISTS contests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     brand_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,
+    description TEXT,
     product_name VARCHAR(255),
     short_description TEXT,
     full_description TEXT,
@@ -396,6 +398,9 @@ CREATE TABLE IF NOT EXISTS contests (
     usage_rights_package ENUM('basic', 'ad', 'full') DEFAULT 'basic',
     posting_required TINYINT(1) DEFAULT 0,
     total_contest_budget DECIMAL(10, 2),
+    number_of_winners INT NOT NULL DEFAULT 1,
+    terms_conditions TEXT,
+    featured_image VARCHAR(255),
     cpm_budget DECIMAL(10, 2),
     pay_per_1000_views DECIMAL(10, 2),
     max_payable_views_per_creator INT,
@@ -448,6 +453,8 @@ CREATE TABLE IF NOT EXISTS contest_submissions (
     rejection_reason TEXT NULL,
     views_rejected_at TIMESTAMP NULL,
     status ENUM('submitted', 'under_review', 'shortlisted', 'winner', 'not_selected', 'disqualified', 'payment_ready', 'paid') DEFAULT 'submitted',
+    winner_position INT NULL DEFAULT NULL,
+    payment_released TINYINT(1) NOT NULL DEFAULT 0,
     submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     approved_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -506,6 +513,7 @@ CREATE TABLE IF NOT EXISTS ugc_orders (
     posting_required TINYINT(1) DEFAULT 0,
     product_delivery_details TEXT,
     revision_limit INT DEFAULT 1,
+    featured_image VARCHAR(255),
     status ENUM('draft', 'published', 'paused', 'completed', 'cancelled') DEFAULT 'published',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -545,6 +553,52 @@ CREATE TABLE IF NOT EXISTS ugc_order_submissions (
     FOREIGN KEY (ugc_order_id) REFERENCES ugc_orders(id) ON DELETE CASCADE,
     FOREIGN KEY (creator_id) REFERENCES creators(id) ON DELETE CASCADE
 );
+
+-- ============================================================
+-- BRAND WALLET SYSTEM
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS `brand_wallets` (
+    `id`                INT AUTO_INCREMENT PRIMARY KEY,
+    `brand_id`          INT NOT NULL,
+    `currency`          VARCHAR(10)  NOT NULL DEFAULT 'GHS',
+    `available_balance` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `reserved_balance`  DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `total_spent`       DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `status`            ENUM('active','frozen','closed') NOT NULL DEFAULT 'active',
+    `created_at`        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `uq_brand_wallet` (`brand_id`),
+    FOREIGN KEY (`brand_id`) REFERENCES `brands`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `wallet_transactions` (
+    `id`               INT AUTO_INCREMENT PRIMARY KEY,
+    `wallet_id`        INT NOT NULL,
+    `brand_id`         INT NOT NULL,
+    `admin_id`         INT NULL,
+    `transaction_type` ENUM(
+        'admin_credit','admin_debit','campaign_reserve','contest_reserve',
+        'ugc_order_reserve','creator_payout','refund_unused_budget','manual_adjustment'
+    ) NOT NULL,
+    `amount`           DECIMAL(15,2) NOT NULL,
+    `currency`         VARCHAR(10)  NOT NULL DEFAULT 'GHS',
+    `balance_before`   DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `balance_after`    DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `reserved_before`  DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `reserved_after`   DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    `description`      TEXT NULL,
+    `reference_type`   VARCHAR(50) NULL,
+    `reference_id`     INT NULL,
+    `created_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`wallet_id`) REFERENCES `brand_wallets`(`id`) ON DELETE CASCADE,
+    KEY `idx_wallet_type` (`wallet_id`, `transaction_type`),
+    KEY `idx_brand_created` (`brand_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Auto-create wallet rows for all existing brands
+INSERT IGNORE INTO `brand_wallets` (`brand_id`, `currency`)
+SELECT `id`, 'GHS' FROM `brands`;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
