@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../includes/functions.php';
+require_once '../includes/wallet_functions.php';
 require_role('brand');
 
 $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
@@ -41,6 +42,11 @@ try {
     $winners_exist = (int)$stmt->fetchColumn() > 0;
 } catch (Exception $e) {}
 
+// Load brand wallet
+$wallet = get_brand_wallet($brand['id']);
+$wallet_available = (float)($wallet['available_balance'] ?? 0);
+$wallet_currency  = $wallet['currency'] ?? 'GHS';
+
 $error   = '';
 $success = '';
 
@@ -64,15 +70,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Validate prize amounts if prizes are editable
         if (!$winners_exist && !empty($prize_amounts_post)) {
-            $new_total = array_sum($prize_amounts_post);
+            $new_total       = array_sum($prize_amounts_post);
             $original_budget = (float)$contest['total_contest_budget'];
-            if ($new_total > $original_budget + 0.01) { // allow tiny float difference
-                $error = "Total prize amounts (" . format_money($new_total, $contest['currency']) . ") cannot exceed the original reserved budget (" . format_money($original_budget, $contest['currency']) . ").";
-            }
+            $budget_increase = $new_total - $original_budget;
+
             foreach ($prize_amounts_post as $amt) {
                 if ($amt <= 0) {
                     $error = "Each prize position must have an amount greater than 0.";
                     break;
+                }
+            }
+
+            // If brand is increasing the budget, check wallet for the extra amount
+            if (!$error && $budget_increase > 0.01) {
+                $contest_currency = $contest['currency'];
+                if (strtoupper($wallet_currency) !== strtoupper($contest_currency)) {
+                    $error = "Your wallet currency ({$wallet_currency}) doesn't match the contest currency ({$contest_currency}). Please contact admin.";
+                } elseif ($wallet_available < $budget_increase) {
+                    $shortfall = $budget_increase - $wallet_available;
+                    $error = "Insufficient wallet balance to increase the prize pool by " . format_money($budget_increase, $contest_currency) . ". "
+                           . "Available: " . format_money($wallet_available, $wallet_currency) . ". "
+                           . "You need " . format_money($shortfall, $wallet_currency) . " more. "
+                           . "Please top up your wallet first.";
                 }
             }
         }
@@ -120,6 +139,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $pos_name = $position_names_post[$pi] ?? ('Position ' . ($pi + 1));
                             $rew_stmt->execute([$id, $pi + 1, $pos_name ?: ('Position ' . ($pi + 1)), $amt, $contest['currency']]);
                             $new_total += $amt;
+                        }
+                        // If prize pool increased, reserve the extra from wallet
+                        $original_budget = (float)$contest['total_contest_budget'];
+                        $budget_increase = $new_total - $original_budget;
+                        if ($budget_increase > 0.01) {
+                            reserve_wallet_budget(
+                                $brand['id'], $budget_increase, 'contest_reserve', 'contest', $id,
+                                "Prize pool increase for contest #{$id}: +{$budget_increase} {$contest['currency']}"
+                            );
                         }
                         // Update contest total_contest_budget to match new sum
                         $pdo->prepare("UPDATE contests SET total_contest_budget=? WHERE id=?")->execute([$new_total, $id]);
@@ -201,7 +229,7 @@ include '../includes/header.php';
             <?php endif; ?>
 
             <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl text-blue-800 dark:text-blue-300 text-sm font-medium">
-                ℹ️ Editing this contest will <strong>not</strong> affect any existing submissions already received. Prize amounts cannot be increased beyond the originally reserved budget.
+                ℹ️ Editing this contest will <strong>not</strong> affect any existing submissions already received. You may increase the prize pool at any time — the extra amount will be reserved from your wallet.
             </div>
 
             <form method="POST" enctype="multipart/form-data" class="space-y-8">
@@ -325,7 +353,23 @@ include '../includes/header.php';
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <p class="text-sm text-gray-500">Set the prize for each winner position. Total cannot exceed the originally reserved budget of <strong><?php echo format_money((float)$contest['total_contest_budget'], $contest['currency']); ?></strong>.</p>
+                        <div class="flex flex-wrap gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm">
+                            <div>
+                                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Current Prize Pool</p>
+                                <p class="font-black text-gray-900 dark:text-white"><?php echo format_money((float)$contest['total_contest_budget'], $contest['currency']); ?></p>
+                            </div>
+                            <div class="w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Wallet Available</p>
+                                <p class="font-black text-green-600"><?php echo format_money($wallet_available, $wallet_currency); ?></p>
+                            </div>
+                            <div class="w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+                            <div>
+                                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Can Increase By Up To</p>
+                                <p class="font-black text-secondary"><?php echo format_money($wallet_available, $wallet_currency); ?></p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-gray-500">You can increase any prize amount — the additional funds will be reserved from your wallet automatically. Reducing prizes keeps unused budget reserved until the contest closes.</p>
 
                         <div id="prize-rows-edit" class="space-y-3">
                             <?php foreach ($rewards as $ri => $reward):
@@ -343,8 +387,8 @@ include '../includes/header.php';
 
                         <div class="p-4 bg-secondary/5 border border-secondary/20 rounded-xl flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-bold text-gray-700 dark:text-gray-300">New Total</p>
-                                <p class="text-xs text-gray-500 mt-0.5">Max: <?php echo format_money((float)$contest['total_contest_budget'], $contest['currency']); ?></p>
+                                <p class="text-sm font-bold text-gray-700 dark:text-gray-300">New Total Prize Pool</p>
+                                <p class="text-xs text-gray-500 mt-0.5" id="edit-prize-diff-label">Same as current</p>
                             </div>
                             <p class="text-xl font-black text-secondary" id="edit-prize-total">
                                 <?php echo format_money((float)$contest['total_contest_budget'], $contest['currency']); ?>
@@ -353,15 +397,36 @@ include '../includes/header.php';
 
                         <script>
                         (function() {
-                            const SYM = <?php echo json_encode(get_currency_symbol($contest['currency'])); ?>;
-                            const MAX = <?php echo (float)$contest['total_contest_budget']; ?>;
+                            const SYM      = <?php echo json_encode(get_currency_symbol($contest['currency'])); ?>;
+                            const ORIGINAL = <?php echo (float)$contest['total_contest_budget']; ?>;
+                            const WALLET   = <?php echo $wallet_available; ?>;
                             window.calcEditTotal = function() {
                                 const inputs = document.querySelectorAll('.prize-amount-edit');
                                 let total = 0;
                                 inputs.forEach(inp => total += parseFloat(inp.value || 0));
-                                const el = document.getElementById('edit-prize-total');
-                                el.textContent = SYM + total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                                el.className = 'text-xl font-black ' + (total > MAX + 0.01 ? 'text-red-500' : 'text-secondary');
+                                const el    = document.getElementById('edit-prize-total');
+                                const label = document.getElementById('edit-prize-diff-label');
+                                const diff  = total - ORIGINAL;
+                                el.textContent = SYM + total.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+                                if (diff > 0.01) {
+                                    if (diff > WALLET + 0.01) {
+                                        el.className   = 'text-xl font-black text-red-500';
+                                        label.textContent = '⚠ Exceeds wallet balance — top up first';
+                                        label.className   = 'text-xs text-red-500 mt-0.5 font-bold';
+                                    } else {
+                                        el.className   = 'text-xl font-black text-secondary';
+                                        label.textContent = '+' + SYM + diff.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' will be reserved from wallet';
+                                        label.className   = 'text-xs text-green-600 mt-0.5 font-bold';
+                                    }
+                                } else if (diff < -0.01) {
+                                    el.className   = 'text-xl font-black text-secondary';
+                                    label.textContent = 'Reduced by ' + SYM + Math.abs(diff).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+                                    label.className   = 'text-xs text-gray-500 mt-0.5';
+                                } else {
+                                    el.className   = 'text-xl font-black text-secondary';
+                                    label.textContent = 'Same as current';
+                                    label.className   = 'text-xs text-gray-500 mt-0.5';
+                                }
                             };
                             calcEditTotal();
                         })();

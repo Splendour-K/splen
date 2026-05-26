@@ -78,6 +78,9 @@ include '../includes/header.php';
                                 <a href="ugc-order-review.php?order_id=<?php echo $order['id']; ?>" class="px-5 py-3 bg-secondary text-white font-bold rounded-xl text-sm hover:scale-105 transition">
                                     Review & Approve
                                 </a>
+                                <a href="edit-ugc-order.php?id=<?php echo $order['id']; ?>" class="px-5 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                    Edit
+                                </a>
                             </div>
                         </div>
                     </div>

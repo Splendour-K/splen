@@ -3,18 +3,24 @@ require_once '../config/database.php';
 require_once '../includes/functions.php';
 require_role('brand');
 
-$id = $_GET['id'] ?? null;
+$stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$brand = $stmt->fetch();
+require_brand_record($brand);
+
+$id = (int)($_GET['id'] ?? 0);
 if (!$id) {
-    header("Location: /brand/my-campaigns.php");
+    header("Location: " . APP_URL . "brand/my-campaigns.php");
     exit();
 }
 
-$stmt = $pdo->prepare("SELECT * FROM campaigns WHERE id = ?");
-$stmt->execute([$id]);
+$stmt = $pdo->prepare("SELECT * FROM campaigns WHERE id = ? AND brand_id = ?");
+$stmt->execute([$id, $brand['id']]);
 $campaign = $stmt->fetch();
 
 if (!$campaign) {
-    die("Campaign not found.");
+    header("Location: " . APP_URL . "brand/my-campaigns.php");
+    exit();
 }
 
 $error = '';
@@ -87,8 +93,9 @@ include '../includes/header.php';
             <header class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden">
                 <div aria-hidden="true" class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-secondary/5 rounded-full blur-3xl"></div>
                 <div class="relative">
+                    <a href="<?php echo APP_URL; ?>brand/my-campaigns.php" class="text-sm font-bold text-gray-400 hover:text-secondary transition mb-3 inline-flex items-center gap-1">← My Campaigns</a>
                     <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Edit Campaign</h2>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">Modify your campaign brief for <span class="text-secondary font-bold"><?php echo e($campaign['title']); ?></span>.</p>
+                    <p class="text-gray-600 dark:text-gray-400 mt-2">Editing: <span class="text-secondary font-bold"><?php echo e($campaign['title']); ?></span></p>
                 </div>
             </header>
 
@@ -132,7 +139,7 @@ include '../includes/header.php';
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Budget</label>
+                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Budget Per Creator</label>
                             <div class="flex gap-2">
                                 <select name="currency" class="w-24 px-3 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium">
                                     <option value="NGN" <?php echo $campaign['currency'] == 'NGN' ? 'selected' : ''; ?>>NGN (₦)</option>
@@ -141,8 +148,9 @@ include '../includes/header.php';
                                     <option value="EUR" <?php echo $campaign['currency'] == 'EUR' ? 'selected' : ''; ?>>EUR (€)</option>
                                     <option value="GBP" <?php echo $campaign['currency'] == 'GBP' ? 'selected' : ''; ?>>GBP (£)</option>
                                 </select>
-                                <input type="number" name="budget_per_creator" value="<?php echo $campaign['budget_per_creator']; ?>" required class="flex-1 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium">
+                                <input type="number" name="budget_per_creator" value="<?php echo $campaign['budget_per_creator']; ?>" required step="0.01" min="0" class="flex-1 px-6 py-4 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-secondary rounded-2xl outline-none transition-all dark:text-white font-medium">
                             </div>
+                            <p class="text-xs text-gray-400 mt-2 ml-1">You can increase or decrease the budget per creator at any time.</p>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 ml-1">Deadline</label>
