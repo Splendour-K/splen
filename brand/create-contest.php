@@ -475,7 +475,13 @@ include '../includes/header.php';
                 const ccy = document.getElementById('f-currency').value;
                 const sym = CCY_SYMBOLS[ccy] || (ccy + ' ');
                 document.getElementById('prize-total-display').textContent = sym + total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                if (typeof validateAll === 'function') validateAll(false);
+                // NOTE: do NOT call validateAll() here — validateAll calls calcPrizeTotal(),
+                // causing infinite mutual recursion that crashes JS and keeps the button disabled.
+            }
+
+            function onPrizeInput() {
+                calcPrizeTotal();
+                if (window.validateAll) window.validateAll(false);
             }
 
             function generatePrizeRows(count) {
@@ -495,7 +501,7 @@ include '../includes/header.php';
                             class="w-36 px-3 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary text-sm font-bold">
                         <input type="number" name="prize_amounts[]" step="0.01" min="0.01" value="${defAmt}" placeholder="0.00"
                             class="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary font-bold text-lg prize-amount-input"
-                            oninput="calcPrizeTotal()">
+                            oninput="onPrizeInput()">
                         <span class="text-sm font-bold text-gray-500 flex-shrink-0 ccy-lbl">${ccy}</span>
                     `;
                     container.appendChild(row);
