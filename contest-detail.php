@@ -27,6 +27,13 @@ if ($logged_in && $role === 'creator') {
     $creator = $stmt->fetch() ?: null;
 }
 
+$brand = null;
+if ($logged_in && $role === 'brand') {
+    $stmt = $pdo->prepare("SELECT * FROM brands WHERE user_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $brand = $stmt->fetch() ?: null;
+}
+
 // Check if this creator already submitted
 $already_submitted = false;
 if ($creator) {
@@ -38,9 +45,10 @@ if ($creator) {
 // Prize rewards breakdown
 $rewards = get_contest_rewards($contest_id);
 
-// Leaderboard (all submissions ranked by views)
-$sort = $_GET['sort'] ?? 'top_ranked';
-$leaderboard = get_contest_board_data($contest_id, $sort);
+// Leaderboard
+$sort            = $_GET['sort'] ?? 'top_ranked';
+$leaderboard     = get_contest_board_data($contest_id, $sort);
+$leaderboard_count = count($leaderboard);
 
 // Deadline status
 $deadline_ts  = strtotime($contest['submission_deadline']);
@@ -138,7 +146,7 @@ include 'includes/header.php';
                                 <span class="text-xl">📥</span>
                                 <div>
                                     <p class="text-[10px] font-black uppercase text-gray-400 tracking-wider">Entries</p>
-                                    <p class="text-base font-black text-gray-900 dark:text-white leading-none"><?php echo count($leaderboard); ?></p>
+                                    <p class="text-base font-black text-gray-900 dark:text-white leading-none"><?php echo $leaderboard_count; ?></p>
                                 </div>
                             </div>
                         </div>
@@ -265,7 +273,7 @@ include 'includes/header.php';
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-500 font-medium">Entries</span>
-                                <span class="font-bold text-gray-900 dark:text-white"><?php echo count($leaderboard); ?></span>
+                                <span class="font-bold text-gray-900 dark:text-white"><?php echo $leaderboard_count; ?></span>
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="text-gray-500 font-medium">Winners</span>
@@ -306,7 +314,7 @@ include 'includes/header.php';
                     <div>
                         <h2 class="text-xl font-black text-gray-900 dark:text-white">
                             Leaderboard
-                            <span class="ml-2 text-sm font-bold text-gray-400"><?php echo count($leaderboard); ?> entries</span>
+                            <span class="ml-2 text-sm font-bold text-gray-400"><?php echo $leaderboard_count; ?> entries</span>
                         </h2>
                         <p class="text-xs text-gray-400 mt-1">Ranked by engagement and views</p>
                     </div>

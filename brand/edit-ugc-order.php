@@ -26,7 +26,10 @@ $wallet_currency  = $wallet['currency'] ?? 'GHS';
 $error   = '';
 $success = '';
 
-// Preserve POST values on error
+// Computed once; used in POST validation and JS ORIGINAL_TOTAL constant
+$original_total = (float)$order['budget_per_creator'] * (int)$order['creator_count'];
+
+// Preserve POST values on error (fall back to current DB values on GET)
 $title              = $_POST['title']               ?? $order['title'];
 $product_name       = $_POST['product_name']        ?? $order['product_name'];
 $full_description   = $_POST['description']         ?? $order['full_description'];
@@ -39,31 +42,21 @@ $revision_limit     = $_POST['revision_limit']      ?? $order['revision_limit'];
 $status_val         = $_POST['status']              ?? $order['status'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $new_budget = (float)$budget_per_creator;
-    $new_count  = max(1, (int)$creator_count);
-    $new_total  = $new_budget * $new_count;
+    $new_budget  = (float)$budget_per_creator;
+    $new_count   = max(1, (int)$creator_count);
+    $new_total   = $new_budget * $new_count;
+    $budget_diff = $new_total - $original_total;
 
-    $original_total = (float)$order['budget_per_creator'] * (int)$order['creator_count'];
-    $budget_diff    = $new_total - $original_total;
-
-    // Basic validation
     if (!$title || !$product_name || !$budget_per_creator || !$deadline) {
         $error = "Title, Product Name, Budget, and Deadline are required.";
     } elseif (strlen(trim($title)) < 3) {
         $error = "Title must be at least 3 characters.";
     } elseif ($new_budget <= 0) {
         $error = "Budget per video must be greater than 0.";
-    } else {
-        // If budget increased, check wallet for the difference
-        if ($budget_diff > 0.01) {
-            if (strtoupper($wallet_currency) !== strtoupper($currency)) {
-                $error = "Your wallet currency ({$wallet_currency}) doesn't match the order currency ({$currency}). Please contact admin.";
-            } elseif ($wallet_available < $budget_diff) {
-                $shortfall = $budget_diff - $wallet_available;
-                $error = "Insufficient wallet balance to increase the budget by " . format_money($budget_diff, $currency) . ". "
-                       . "Available: " . format_money($wallet_available, $wallet_currency) . ". "
-                       . "You need " . format_money($shortfall, $wallet_currency) . " more. Please top up your wallet.";
-            }
+    } elseif ($budget_diff > 0.01) {
+        $check = check_wallet_for_publish($brand['id'], $budget_diff, $currency);
+        if (!$check['ok']) {
+            $error = wallet_error_message($check);
         }
     }
 
@@ -82,7 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $status_val, $id, $brand['id'],
             ]);
 
-            // Reserve extra budget from wallet if total increased
             if ($budget_diff > 0.01) {
                 reserve_wallet_budget(
                     $brand['id'], $budget_diff, 'ugc_order_reserve', 'ugc_order', $id,
@@ -92,24 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $success = "UGC Order updated successfully!";
 
-            // Reload order data
+            // Reload for fresh values (including recomputed $original_total for JS)
             $stmt = $pdo->prepare("SELECT * FROM ugc_orders WHERE id = ?");
             $stmt->execute([$id]);
-            $order = $stmt->fetch();
+            $order          = $stmt->fetch();
+            $original_total = (float)$order['budget_per_creator'] * (int)$order['creator_count'];
 
-            // Refresh display values
-            $title              = $order['title'];
-            $product_name       = $order['product_name'];
-            $full_description   = $order['full_description'];
-            $budget_per_creator = $order['budget_per_creator'];
-            $creator_count      = $order['creator_count'];
-            $currency           = $order['currency'];
-            $deadline           = $order['deadline'];
-            $usage_rights_pkg   = $order['usage_rights_package'];
-            $revision_limit     = $order['revision_limit'];
-            $status_val         = $order['status'];
-
-            // Refresh wallet
+            // Refresh wallet balance to reflect any new reservation
             $wallet           = get_brand_wallet($brand['id']);
             $wallet_available = (float)($wallet['available_balance'] ?? 0);
 
@@ -118,8 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
-$original_total = (float)$order['budget_per_creator'] * (int)$order['creator_count'];
 
 include '../includes/header.php';
 ?>
@@ -318,8 +297,6 @@ include '../includes/header.php';
 
         if (diff > 0.01 && diff > WALLET_AVAIL + 0.01) {
             el.className = 'font-black text-red-500';
-        } else if (diff > 0.01) {
-            el.className = 'font-black text-secondary';
         } else {
             el.className = 'font-black text-secondary';
         }

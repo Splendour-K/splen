@@ -3,8 +3,9 @@ require_once '../config/database.php';
 require_once '../includes/functions.php';
 require_role('admin');
 
-$filter = $_GET['filter'] ?? 'pending';
-$search = $_GET['search'] ?? '';
+$filter     = $_GET['filter'] ?? 'pending';
+$search     = $_GET['search'] ?? '';
+$contest_id = (int)($_GET['contest_id'] ?? 0);
 
 // ── Handle Delete ─────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_submission_id'])) {
@@ -131,6 +132,13 @@ $sql = "
     WHERE 1=1
 ";
 
+$params = [];
+
+if ($contest_id) {
+    $sql .= " AND cs.contest_id = ?";
+    $params[] = $contest_id;
+}
+
 if ($filter === 'pending') {
     $sql .= " AND cs.status = 'submitted'";
 } elseif ($filter === 'flagged') {
@@ -141,17 +149,15 @@ if ($filter === 'pending') {
 
 if ($search) {
     $sql .= " AND (c.title LIKE ? OR cr.full_name LIKE ?)";
+    $search_param = '%' . $search . '%';
+    $params[] = $search_param;
+    $params[] = $search_param;
 }
 
 $sql .= " ORDER BY cs.created_at DESC";
 
 $stmt = $pdo->prepare($sql);
-if ($search) {
-    $search_param = '%' . $search . '%';
-    $stmt->execute([$search_param, $search_param]);
-} else {
-    $stmt->execute();
-}
+$stmt->execute($params);
 $submissions = $stmt->fetchAll();
 
 // ── Pre-load all contest rewards (keyed by contest_id) ─────────
@@ -187,8 +193,21 @@ include '../includes/header.php';
 
             <!-- Search + Filters -->
             <div class="space-y-4">
+                <?php if ($contest_id): ?>
+                    <?php
+                    $cname_stmt = $pdo->prepare("SELECT title FROM contests WHERE id = ?");
+                    $cname_stmt->execute([$contest_id]);
+                    $contest_title_filter = $cname_stmt->fetchColumn() ?: 'Contest #' . $contest_id;
+                    ?>
+                    <div class="flex items-center gap-3 px-5 py-3 bg-secondary/10 border border-secondary/20 rounded-2xl">
+                        <span class="text-secondary text-sm font-bold">🏆 Filtered: <?php echo e($contest_title_filter); ?></span>
+                        <a href="contest-submissions.php?filter=<?php echo e($filter); ?>" class="text-xs text-gray-500 hover:text-red-500 font-bold">✕ Clear</a>
+                    </div>
+                <?php endif; ?>
+
                 <form method="GET" class="flex gap-2">
                     <input type="hidden" name="filter" value="<?php echo e($filter); ?>">
+                    <?php if ($contest_id): ?><input type="hidden" name="contest_id" value="<?php echo $contest_id; ?>"><?php endif; ?>
                     <input type="text" name="search" placeholder="Search creator or contest..." value="<?php echo e($search); ?>" class="flex-1 px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
                     <button type="submit" class="px-6 py-3 bg-secondary text-white font-bold rounded-xl hover:scale-105 transition">Search</button>
                 </form>
@@ -196,9 +215,10 @@ include '../includes/header.php';
                 <div class="flex flex-wrap gap-2">
                     <?php
                     $tabs = ['pending' => 'Pending Review', 'all' => 'All Submissions', 'winners' => '🏆 Winners', 'flagged' => 'Flagged'];
+                    $contest_qs = $contest_id ? '&contest_id=' . $contest_id : '';
                     foreach ($tabs as $key => $label):
                     ?>
-                        <a href="?filter=<?php echo $key; ?><?php echo $search ? '&search=' . urlencode($search) : ''; ?>"
+                        <a href="?filter=<?php echo $key . $contest_qs; ?><?php echo $search ? '&search=' . urlencode($search) : ''; ?>"
                            class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter === $key ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">
                             <?php echo $label; ?>
                         </a>

@@ -3,8 +3,9 @@ require_once '../config/database.php';
 require_once '../includes/functions.php';
 require_role('admin');
 
-$filter = $_GET['filter'] ?? 'pending';
-$search = $_GET['search'] ?? '';
+$filter   = $_GET['filter']   ?? 'pending';
+$search   = $_GET['search']   ?? '';
+$order_id = (int)($_GET['order_id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_submission_id'])) {
     $delete_id = (int)$_POST['delete_submission_id'];
@@ -34,6 +35,13 @@ $sql = "
     WHERE 1=1
 ";
 
+$params = [];
+
+if ($order_id) {
+    $sql      .= " AND us.ugc_order_id = ?";
+    $params[]  = $order_id;
+}
+
 if ($filter === 'pending') {
     $sql .= " AND us.status = 'submitted'";
 } elseif ($filter === 'flagged') {
@@ -42,18 +50,15 @@ if ($filter === 'pending') {
 
 if ($search) {
     $sql .= " AND (uo.title LIKE ? OR cr.full_name LIKE ?)";
+    $s        = '%' . $search . '%';
+    $params[] = $s;
+    $params[] = $s;
 }
 
 $sql .= " ORDER BY us.created_at DESC";
 
 $stmt = $pdo->prepare($sql);
-
-if ($search) {
-    $search_param = '%' . $search . '%';
-    $stmt->execute([$search_param, $search_param]);
-} else {
-    $stmt->execute();
-}
+$stmt->execute($params);
 
 $submissions = $stmt->fetchAll();
 
@@ -80,27 +85,33 @@ include '../includes/header.php';
             <?php endif; ?>
 
             <div class="space-y-4">
-                <div class="flex flex-col md:flex-row gap-4">
-                    <div class="flex-1">
-                        <form method="GET" class="flex gap-2">
-                            <input type="text" name="search" placeholder="Search creator or order..." value="<?php echo e($search); ?>" class="flex-1 px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
-                            <button type="submit" class="px-6 py-3 bg-secondary text-white font-bold rounded-xl hover:scale-105 transition">Search</button>
-                        </form>
+                <?php if ($order_id): ?>
+                    <?php
+                    $otitle_stmt = $pdo->prepare("SELECT title FROM ugc_orders WHERE id = ?");
+                    $otitle_stmt->execute([$order_id]);
+                    $order_title_filter = $otitle_stmt->fetchColumn() ?: 'Order #' . $order_id;
+                    ?>
+                    <div class="flex items-center gap-3 px-5 py-3 bg-secondary/10 border border-secondary/20 rounded-2xl">
+                        <span class="text-secondary text-sm font-bold">🎬 Filtered: <?php echo e($order_title_filter); ?></span>
+                        <a href="ugc-submissions.php?filter=<?php echo e($filter); ?>" class="text-xs text-gray-500 hover:text-red-500 font-bold">✕ Clear</a>
                     </div>
-                </div>
+                <?php endif; ?>
 
+                <form method="GET" class="flex gap-2">
+                    <input type="hidden" name="filter" value="<?php echo e($filter); ?>">
+                    <?php if ($order_id): ?><input type="hidden" name="order_id" value="<?php echo $order_id; ?>"><?php endif; ?>
+                    <input type="text" name="search" placeholder="Search creator or order..." value="<?php echo e($search); ?>" class="flex-1 px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary">
+                    <button type="submit" class="px-6 py-3 bg-secondary text-white font-bold rounded-xl hover:scale-105 transition">Search</button>
+                </form>
+
+                <?php $order_qs = $order_id ? '&order_id=' . $order_id : ''; ?>
                 <div class="flex flex-wrap gap-2">
-                    <a href="?filter=pending" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter === 'pending' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">Pending Review</a>
-                    <a href="?filter=all" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter === 'all' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">All Submissions</a>
-                    <a href="?filter=flagged" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter === 'flagged' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">Flagged</a>
+                    <a href="?filter=pending<?php echo $order_qs; ?>" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter === 'pending' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">Pending Review</a>
+                    <a href="?filter=all<?php echo $order_qs; ?>" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter === 'all' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">All Submissions</a>
+                    <a href="?filter=flagged<?php echo $order_qs; ?>" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter === 'flagged' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">Flagged</a>
                 </div>
             </div>
 
-            <?php if ($_GET['message'] ?? false): ?>
-                <div class="p-4 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl text-green-800 dark:text-green-400 font-bold">
-                    ✓ <?php echo e($_GET['message']); ?>
-                </div>
-            <?php endif; ?>
 
             <div class="space-y-4">
                 <?php foreach ($submissions as $submission): ?>

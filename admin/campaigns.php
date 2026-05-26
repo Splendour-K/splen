@@ -1,36 +1,79 @@
-﻿<?php
+<?php
 require_once "../config/database.php";
 require_once "../includes/functions.php";
 require_role("admin");
 
-$success = $_GET["success"] ?? "";
+$message = '';
 
-// Handle Actions
-if (isset($_GET["action"]) && isset($_GET["camp_id"])) {
-    $action = $_GET["action"];
-    $camp_id = (int)$_GET["camp_id"];
+// ── POST-based mutations ──────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action  = $_POST['action']  ?? '';
+    $camp_id = (int)($_POST['camp_id'] ?? 0);
 
-    if ($action === "feature") {
-        $pdo->prepare("UPDATE campaigns SET is_featured = 1 WHERE id = ?")->execute([$camp_id]);
-        header("Location: campaigns.php?success=Featured"); exit();
-    }
-    if ($action === "unfeature") {
-        $pdo->prepare("UPDATE campaigns SET is_featured = 0 WHERE id = ?")->execute([$camp_id]);
-        header("Location: campaigns.php?success=Unfeatured"); exit();
-    }
-    if ($action === "pause") {
-        $pdo->prepare("UPDATE campaigns SET status = \"paused\" WHERE id = ?")->execute([$camp_id]);
-        header("Location: campaigns.php?success=Paused"); exit();
-    }
-    if ($action === "delete") {
-        $pdo->prepare("DELETE FROM campaigns WHERE id = ?")->execute([$camp_id]);
-        header("Location: campaigns.php?success=Deleted"); exit();
+    if ($camp_id) {
+        switch ($action) {
+            case 'feature':
+                $pdo->prepare("UPDATE campaigns SET is_featured = 1 WHERE id = ?")->execute([$camp_id]);
+                log_activity($_SESSION['user_id'], 'Campaign Featured', "Campaign #$camp_id featured");
+                $message = 'Campaign starred.';
+                break;
+            case 'unfeature':
+                $pdo->prepare("UPDATE campaigns SET is_featured = 0 WHERE id = ?")->execute([$camp_id]);
+                log_activity($_SESSION['user_id'], 'Campaign Unstarred', "Campaign #$camp_id unstarred");
+                $message = 'Campaign unstarred.';
+                break;
+            case 'pause':
+                $pdo->prepare("UPDATE campaigns SET status = 'paused' WHERE id = ?")->execute([$camp_id]);
+                log_activity($_SESSION['user_id'], 'Campaign Paused', "Campaign #$camp_id paused");
+                $message = 'Campaign paused.';
+                break;
+            case 'activate':
+                $pdo->prepare("UPDATE campaigns SET status = 'active' WHERE id = ?")->execute([$camp_id]);
+                log_activity($_SESSION['user_id'], 'Campaign Activated', "Campaign #$camp_id activated");
+                $message = 'Campaign set to active.';
+                break;
+            case 'delete':
+                $pdo->prepare("DELETE FROM campaigns WHERE id = ?")->execute([$camp_id]);
+                log_activity($_SESSION['user_id'], 'Campaign Deleted', "Campaign #$camp_id deleted");
+                $message = 'Campaign deleted.';
+                break;
+        }
     }
 }
 
-// Fetch Campaigns
-$stmt = $pdo->query("SELECT c.*, b.brand_name FROM campaigns c JOIN brands b ON c.brand_id = b.id ORDER BY c.created_at DESC");
+// ── Filters ───────────────────────────────────────────────────
+$filter_status = $_GET['status'] ?? '';
+$search        = trim($_GET['search'] ?? '');
+
+$sql    = "SELECT c.*, b.brand_name FROM campaigns c JOIN brands b ON c.brand_id = b.id WHERE 1=1";
+$params = [];
+
+if ($filter_status !== '') {
+    $sql    .= " AND c.status = ?";
+    $params[] = $filter_status;
+}
+if ($search !== '') {
+    $sql    .= " AND (c.title LIKE ? OR b.brand_name LIKE ?)";
+    $s       = '%' . $search . '%';
+    $params[] = $s;
+    $params[] = $s;
+}
+$sql .= " ORDER BY c.created_at DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $campaigns = $stmt->fetchAll();
+
+// Stats
+$stats = $pdo->query("
+    SELECT
+        COUNT(*) AS total,
+        SUM(status = 'active')  AS active_count,
+        SUM(status = 'paused')  AS paused_count,
+        SUM(status = 'draft')   AS draft_count,
+        SUM(is_featured = 1)    AS featured_count
+    FROM campaigns
+")->fetch();
 
 include "../includes/header.php";
 ?>
@@ -40,48 +83,139 @@ include "../includes/header.php";
         <?php include "dashboard_sidebar.php"; ?>
 
         <main class="flex-1 space-y-8">
+
+            <!-- Header -->
             <header class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
-                <h2 class="text-3xl font-black text-gray-900 dark:text-white">Campaign Control</h2>
-                <p class="text-gray-500 font-bold mt-1">Audit and moderate all briefs on the platform.</p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Admin — Campaigns</p>
+                <h2 class="text-3xl font-black text-gray-900 dark:text-white mt-1">Campaign Control</h2>
+                <p class="text-gray-500 font-bold mt-1">Audit, moderate, and manage all brand briefs on the platform.</p>
             </header>
 
-            <div class="grid grid-cols-1 gap-6">
-                <?php foreach ($campaigns as $c): ?>
-                    <div class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col md:flex-row gap-8 group">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-2">
-                                <h3 class="text-xl font-black text-gray-900 dark:text-white"><?php echo e($c["title"]); ?></h3>
-                                <?php if ($c["is_featured"]): ?>
-                                    <span class="px-2 py-0.5 bg-orange-100 text-orange-600 text-[9px] font-black uppercase rounded-full">Starred</span>
-                                <?php endif; ?>
-                            </div>
-                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Brand: <span class="text-primary"><?php echo e($c["brand_name"]); ?></span></p>
-                            
-                            <div class="flex gap-6">
-                                <div class="text-sm">
-                                    <p class="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Budget</p>
-                                    <p class="font-bold text-gray-900 dark:text-white"><?php echo $c["currency"]; ?> <?php echo number_format($c["budget_per_creator"]); ?></p>
-                                </div>
-                                <div class="text-sm">
-                                    <p class="text-[10px] text-gray-400 font-black uppercase tracking-tighter">Status</p>
-                                    <p class="font-bold text-orange-500"><?php echo e($c["status"]); ?></p>
-                                </div>
-                            </div>
-                        </div>
+            <?php if ($message): ?>
+                <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900 rounded-2xl text-green-800 dark:text-green-300 text-sm font-bold">
+                    ✓ <?php echo e($message); ?>
+                </div>
+            <?php endif; ?>
 
-                        <div class="flex items-center gap-3">
-                            <?php if (!$c["is_featured"]): ?>
-                                <a href="?action=feature&camp_id=<?php echo $c["id"]; ?>" class="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-2xl flex items-center justify-center hover:bg-orange-500 hover:text-white transition-all shadow-sm">⭐</a>
-                            <?php else: ?>
-                                <a href="?action=unfeature&camp_id=<?php echo $c["id"]; ?>" class="w-12 h-12 bg-orange-500 text-white rounded-2xl flex items-center justify-center hover:bg-gray-900 transition-all shadow-sm">✖️</a>
-                            <?php endif; ?>
-                            
-                            <a href="?action=pause&camp_id=<?php echo $c["id"]; ?>" class="px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-black rounded-xl text-[10px] uppercase tracking-widest hover:bg-orange-600 hover:text-white transition-all">Pause</a>
-                            <a href="?action=delete&camp_id=<?php echo $c["id"]; ?>" onclick="return confirm(\"Permanently delete this campaign?\")" class="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-sm">🗑️</a>
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <?php
+                $stat_cards = [
+                    ['Total',    $stats['total'],         'bg-gray-900',   'text-white'],
+                    ['Active',   $stats['active_count'],  'bg-green-500',  'text-white'],
+                    ['Paused',   $stats['paused_count'],  'bg-orange-500', 'text-white'],
+                    ['Draft',    $stats['draft_count'],   'bg-gray-500',   'text-white'],
+                    ['Starred',  $stats['featured_count'],'bg-yellow-400', 'text-gray-900'],
+                ];
+                foreach ($stat_cards as [$label, $val, $bg, $tc]):
+                ?>
+                <div class="p-5 <?php echo $bg; ?> rounded-[1.5rem] shadow-sm">
+                    <p class="text-xs font-black uppercase tracking-widest <?php echo $tc; ?> opacity-70"><?php echo $label; ?></p>
+                    <p class="text-3xl font-black <?php echo $tc; ?> mt-1"><?php echo (int)$val; ?></p>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <!-- Search + Filters -->
+            <div class="space-y-4">
+                <form method="GET" class="flex gap-2">
+                    <input type="hidden" name="status" value="<?php echo e($filter_status); ?>">
+                    <input type="text" name="search" placeholder="Search title or brand…" value="<?php echo e($search); ?>"
+                           class="flex-1 px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-secondary text-sm">
+                    <button type="submit" class="px-6 py-3 bg-secondary text-white font-bold rounded-xl hover:scale-105 transition text-sm">Search</button>
+                </form>
+
+                <div class="flex flex-wrap gap-2">
+                    <?php
+                    $tabs = ['' => 'All', 'active' => 'Active', 'paused' => 'Paused', 'draft' => 'Draft'];
+                    foreach ($tabs as $key => $label):
+                    ?>
+                        <a href="?status=<?php echo $key; ?><?php echo $search ? '&search=' . urlencode($search) : ''; ?>"
+                           class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $filter_status === $key ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">
+                            <?php echo $label; ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <!-- Campaigns List -->
+            <div class="space-y-4">
+                <?php foreach ($campaigns as $c): ?>
+                    <div class="p-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                        <div class="flex flex-col md:flex-row md:items-center gap-5">
+
+                            <!-- Info -->
+                            <div class="flex-1">
+                                <div class="flex flex-wrap items-center gap-2 mb-2">
+                                    <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase
+                                        <?php echo $c['status'] === 'active'  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                  ($c['status'] === 'paused' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                                                               'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'); ?>">
+                                        <?php echo ucfirst(e($c['status'])); ?>
+                                    </span>
+                                    <?php if ($c['is_featured']): ?>
+                                        <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-[10px] font-black uppercase">⭐ Starred</span>
+                                    <?php endif; ?>
+                                </div>
+                                <h3 class="text-xl font-black text-gray-900 dark:text-white"><?php echo e($c['title']); ?></h3>
+                                <p class="text-xs font-bold text-gray-400 mt-1">
+                                    Brand: <span class="text-secondary"><?php echo e($c['brand_name']); ?></span>
+                                    &nbsp;·&nbsp; <?php echo e($c['currency']); ?> <?php echo number_format((float)$c['budget_per_creator']); ?> per creator
+                                    &nbsp;·&nbsp; Created <?php echo date('M d, Y', strtotime($c['created_at'])); ?>
+                                </p>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex flex-wrap items-center gap-2">
+                                <a href="../brand/edit-campaign.php?id=<?php echo $c['id']; ?>" class="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-xs hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+                                    ✏️ Edit
+                                </a>
+
+                                <?php if (!$c['is_featured']): ?>
+                                    <form method="POST">
+                                        <input type="hidden" name="action"  value="feature">
+                                        <input type="hidden" name="camp_id" value="<?php echo $c['id']; ?>">
+                                        <button type="submit" class="px-4 py-2 bg-yellow-50 text-yellow-700 font-bold rounded-xl text-xs hover:bg-yellow-400 hover:text-white transition">⭐ Star</button>
+                                    </form>
+                                <?php else: ?>
+                                    <form method="POST">
+                                        <input type="hidden" name="action"  value="unfeature">
+                                        <input type="hidden" name="camp_id" value="<?php echo $c['id']; ?>">
+                                        <button type="submit" class="px-4 py-2 bg-yellow-400 text-white font-bold rounded-xl text-xs hover:bg-gray-200 hover:text-gray-700 transition">✖ Unstar</button>
+                                    </form>
+                                <?php endif; ?>
+
+                                <?php if ($c['status'] !== 'paused'): ?>
+                                    <form method="POST">
+                                        <input type="hidden" name="action"  value="pause">
+                                        <input type="hidden" name="camp_id" value="<?php echo $c['id']; ?>">
+                                        <button type="submit" class="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl text-xs hover:bg-orange-600 hover:text-white transition">⏸ Pause</button>
+                                    </form>
+                                <?php else: ?>
+                                    <form method="POST">
+                                        <input type="hidden" name="action"  value="activate">
+                                        <input type="hidden" name="camp_id" value="<?php echo $c['id']; ?>">
+                                        <button type="submit" class="px-4 py-2 bg-green-600 text-white font-bold rounded-xl text-xs hover:bg-green-700 transition">▶ Activate</button>
+                                    </form>
+                                <?php endif; ?>
+
+                                <form method="POST" onsubmit="return confirm('Permanently delete this campaign and all its data?');">
+                                    <input type="hidden" name="action"  value="delete">
+                                    <input type="hidden" name="camp_id" value="<?php echo $c['id']; ?>">
+                                    <button type="submit" class="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl text-xs hover:bg-red-600 hover:text-white transition">🗑 Delete</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
+
+            <?php if (empty($campaigns)): ?>
+                <div class="p-12 text-center bg-white dark:bg-gray-900 rounded-[2.5rem] border border-dashed border-gray-200 dark:border-gray-800 shadow-sm">
+                    <p class="text-gray-400">No campaigns match your filters.</p>
+                </div>
+            <?php endif; ?>
+
         </main>
     </div>
 </div>
