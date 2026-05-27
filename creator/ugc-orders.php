@@ -46,14 +46,14 @@ include '../includes/header.php';
             <header class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden">
                 <div aria-hidden="true" class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-secondary/5 rounded-full blur-3xl"></div>
                 <div class="relative">
-                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">UGC Orders</h2>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">Find UGC opportunities and earn flat-rate payments</p>
+                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Campaigns</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mt-2">Browse active campaigns, submit your videos, and earn flat-rate payments upon approval.</p>
                 </div>
             </header>
 
             <div class="flex flex-wrap gap-2">
-                <a href="?tab=available" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $tab === 'available' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">Available Orders</a>
-                <a href="?tab=my_submissions" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $tab === 'my_submissions' ? 'bg-secondary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">My Submissions</a>
+                <a href="?tab=available" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $tab === 'available' ? 'bg-primary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">Browse Campaigns</a>
+                <a href="?tab=my_submissions" class="px-4 py-2 rounded-xl font-bold text-sm <?php echo $tab === 'my_submissions' ? 'bg-primary text-white' : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-800'; ?>">My Submissions</a>
             </div>
 
             <?php if ($tab === 'available'): ?>
@@ -63,7 +63,7 @@ include '../includes/header.php';
                             <div class="flex flex-col md:flex-row md:items-center justify-between gap-5">
                                 <div class="flex-1">
                                     <div class="flex flex-wrap items-center gap-3 mb-2">
-                                        <span class="px-3 py-1 bg-secondary/10 text-secondary rounded-full text-[10px] font-black uppercase"><?php echo e($order['currency']); ?> <?php echo number_format((float)$order['payment_per_video'], 2); ?>/video</span>
+                                        <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase"><?php echo e($order['currency']); ?> <?php echo number_format((float)$order['budget_per_creator'], 2); ?>/video</span>
                                         <?php if ($order['already_submitted']): ?>
                                             <span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-[10px] font-black uppercase">✓ Submitted</span>
                                         <?php endif; ?>
@@ -119,7 +119,7 @@ include '../includes/header.php';
                                 <div class="flex-1 min-w-0">
                                     <div class="flex flex-wrap items-center gap-2 mb-2">
                                         <span class="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-[10px] font-black uppercase"><?php echo ucfirst(str_replace('_', ' ', e($submission['status']))); ?></span>
-                                        <span class="px-3 py-1 bg-secondary/10 text-secondary rounded-full text-[10px] font-black uppercase"><?php echo e($submission['currency']); ?> <?php echo number_format((float)$submission['payment_per_video'], 2); ?></span>
+                                        <span class="px-3 py-1 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase"><?php echo e($submission['currency']); ?> <?php echo number_format((float)$submission['budget_per_creator'], 2); ?></span>
                                     </div>
                                     <h3 class="text-lg font-black text-gray-900 dark:text-white truncate"><?php echo e($submission['order_title']); ?></h3>
                                     <p class="text-sm text-gray-500 mt-1 truncate"><?php echo e($submission['company_name']); ?></p>
@@ -129,15 +129,21 @@ include '../includes/header.php';
 
                                     <?php if ($submission['status'] === 'approved'): ?>
                                         <div class="mt-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                                            <p class="text-xs font-bold text-green-700 dark:text-green-400">✓ Approved · Payment released</p>
+                                            <p class="text-xs font-bold text-green-700 dark:text-green-400">✓ Approved · Payment being processed</p>
                                         </div>
                                     <?php elseif ($submission['status'] === 'revision_requested'): ?>
-                                        <div class="mt-3 p-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-                                            <p class="text-xs font-bold text-orange-700 dark:text-orange-400">⚠ Revision needed</p>
+                                        <div class="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+                                            <p class="text-xs font-bold text-orange-700 dark:text-orange-400 mb-1">↩ Revision Requested</p>
+                                            <?php if (!empty($submission['brand_feedback'])): ?>
+                                                <p class="text-xs text-orange-800 dark:text-orange-300"><?php echo e($submission['brand_feedback']); ?></p>
+                                            <?php endif; ?>
                                         </div>
                                     <?php elseif ($submission['status'] === 'rejected'): ?>
-                                        <div class="mt-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                                            <p class="text-xs font-bold text-red-700 dark:text-red-400">✕ Not selected</p>
+                                        <div class="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                            <p class="text-xs font-bold text-red-700 dark:text-red-400 mb-1">✕ Not Approved</p>
+                                            <?php if (!empty($submission['brand_feedback'])): ?>
+                                                <p class="text-xs text-red-800 dark:text-red-300"><?php echo e($submission['brand_feedback']); ?></p>
+                                            <?php endif; ?>
                                         </div>
                                     <?php else: ?>
                                         <div class="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">

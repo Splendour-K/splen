@@ -68,10 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($creator_user_ids) {
                         create_notification_batch(
                             $creator_user_ids,
-                            'New UGC Opportunity',
-                            $brand['brand_name'] . ' just published a new UGC order: ' . $title,
+                            'New Campaign Available 🎬',
+                            $brand['brand_name'] . ' just published a new campaign: ' . $title,
                             'ugc_order',
-                            'creator/submit-ugc-order.php?order_id=' . $ugc_order_id,
+                            'creator/ugc-orders.php',
                             'ugc_order',
                             $ugc_order_id
                         );
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $wallet_note = $wallet_reserved
                     ? format_money($required_budget, $currency) . " has been reserved from your wallet."
                     : "Note: Wallet reservation pending — please ensure your wallet is funded with " . $currency . ".";
-                $success = "UGC Order created successfully! " . $wallet_note;
+                $success = "Campaign published successfully! " . $wallet_note;
             } catch (Exception $e) {
                 $error = "Error creating UGC order: " . $e->getMessage();
             }
@@ -105,17 +105,20 @@ include '../includes/header.php';
             <header class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm relative overflow-hidden">
                 <div aria-hidden="true" class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-secondary/5 rounded-full blur-3xl"></div>
                 <div class="relative text-center md:text-left">
-                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">New UGC Order</h2>
-                    <p class="text-gray-600 dark:text-gray-400 mt-2">Commission UGC videos at a flat rate per video.</p>
+                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Create Campaign</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mt-2">Post a brief, set your per-video rate, and let creators submit their videos. Approve to release payment.</p>
                 </div>
             </header>
 
             <?php if ($success): ?>
                 <div class="p-8 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-[2rem] text-center shadow-sm">
                     <div class="w-20 h-20 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">✓</div>
-                    <h3 class="text-2xl font-bold text-green-900 dark:text-green-400 mb-2">UGC Order Published!</h3>
+                    <h3 class="text-2xl font-bold text-green-900 dark:text-green-400 mb-2">Campaign Published!</h3>
                     <p class="text-green-700 dark:text-green-300 mb-8"><?php echo e($success); ?></p>
-                    <a href="<?php echo APP_URL; ?>brand/dashboard.php" class="inline-flex h-12 items-center justify-center px-8 bg-secondary text-white font-bold rounded-full hover:scale-105 transition">Go to Dashboard</a>
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <a href="<?php echo APP_URL; ?>brand/ugc-orders.php" class="inline-flex h-12 items-center justify-center px-8 bg-primary text-white font-bold rounded-full hover:scale-105 transition">View My Campaigns</a>
+                        <a href="<?php echo APP_URL; ?>brand/dashboard.php" class="inline-flex h-12 items-center justify-center px-8 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 font-bold rounded-full hover:scale-105 transition">Dashboard</a>
+                    </div>
                 </div>
             <?php else: ?>
 

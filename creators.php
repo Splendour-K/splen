@@ -31,9 +31,9 @@ include 'includes/header.php';
         <div class="max-w-7xl mx-auto px-6 md:px-12">
             <div class="relative bg-secondary/10 dark:bg-gray-800 rounded-3xl p-8 md:p-16 border border-secondary/20 dark:border-gray-700">
                 <div class="md:w-2/3">
-                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">No huge followers needed.</h2>
+                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">No huge following required.</h2>
                     <p class="text-xl text-gray-700 dark:text-gray-300 leading-relaxed">
-                        Brands care about your creativity and personality, not your follower count. If you can shoot a clear, fun video on your phone, you're exactly who we're looking for.
+                        Brands on Splennet care about your creativity and storytelling — not your subscriber count. If you can shoot an engaging, honest video on your phone, you already have what it takes.
                     </p>
                 </div>
             </div>
@@ -48,8 +48,8 @@ include 'includes/header.php';
                     <div class="relative space-y-8 py-12 p-8">
                         <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl">⏰</div>
                         <div class="space-y-2">
-                            <h5 class="text-xl font-semibold text-gray-700 dark:text-white transition group-hover:text-secondary">Create your own schedule</h5>
-                            <p class="text-gray-600 dark:text-gray-300">Choose jobs that fit your classes and study time. You are your own boss.</p>
+                            <h5 class="text-xl font-semibold text-gray-700 dark:text-white transition group-hover:text-secondary">Work around your schedule</h5>
+                            <p class="text-gray-600 dark:text-gray-300">Apply for opportunities that fit between your classes and exams. No long-term commitments — every job is on your terms.</p>
                         </div>
                     </div>
                 </div>
@@ -57,8 +57,8 @@ include 'includes/header.php';
                     <div class="relative space-y-8 py-12 p-8">
                         <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-2xl">💼</div>
                         <div class="space-y-2">
-                            <h5 class="text-xl font-semibold text-gray-700 dark:text-white transition group-hover:text-secondary">Build your portfolio</h5>
-                            <p class="text-gray-600 dark:text-gray-300">Work with real brands and build a professional creator CV that stands out.</p>
+                            <h5 class="text-xl font-semibold text-gray-700 dark:text-white transition group-hover:text-secondary">Build a real creator CV</h5>
+                            <p class="text-gray-600 dark:text-gray-300">Every completed brand job adds to your portfolio. Graduate with verifiable commercial work experience — not just campus projects.</p>
                         </div>
                     </div>
                 </div>
@@ -66,11 +66,46 @@ include 'includes/header.php';
                     <div class="relative space-y-8 py-12 p-8">
                         <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-2xl">💰</div>
                         <div class="space-y-2">
-                            <h5 class="text-xl font-semibold text-gray-700 dark:text-white transition group-hover:text-secondary">Get paid fairly</h5>
-                            <p class="text-gray-600 dark:text-gray-300">Secure payments for every approved video. No chasing brands for your money.</p>
+                            <h5 class="text-xl font-semibold text-gray-700 dark:text-white transition group-hover:text-secondary">Guaranteed, secure payment</h5>
+                            <p class="text-gray-600 dark:text-gray-300">Brand payments are held in escrow before work begins. Once your content is approved, your payout is processed — no chasing invoices.</p>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Earnings Types -->
+    <div class="pb-20">
+        <div class="max-w-7xl mx-auto px-6 md:px-12">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Multiple ways to earn</h2>
+                <p class="mt-3 text-gray-500">Different content types, different earning models — pick what suits you best.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <span class="text-3xl mb-4 block">📢</span>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Campaigns</h3>
+                    <p class="text-sm text-gray-500">Apply to brand briefs, get shortlisted, and earn a fixed fee per approved video submission.</p>
+                </div>
+                <div class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <span class="text-3xl mb-4 block">🏆</span>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">Contests</h3>
+                    <p class="text-sm text-gray-500">Submit your best creative take on a brand challenge. Win a prize from the posted prize pool — results reviewed by the brand or by views.</p>
+                </div>
+                <div class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <span class="text-3xl mb-4 block">🎥</span>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2">UGC Orders</h3>
+                    <p class="text-sm text-gray-500">Accept a direct content order from a brand, deliver the video, and earn your order fee plus potential CPM bonuses based on performance.</p>
+                </div>
+            </div>
+
+            <!-- CTA -->
+            <div class="mt-12 text-center">
+                <a href="register.php?role=creator" class="inline-flex items-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-full hover:scale-105 transition text-base shadow-lg shadow-primary/30">
+                    Start earning as a creator →
+                </a>
+                <p class="text-xs text-gray-400 mt-3">Free to join. Student verification required.</p>
             </div>
         </div>
     </div>

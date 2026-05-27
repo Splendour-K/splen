@@ -84,25 +84,89 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- Features Section -->
+    <!-- How It Works -->
+    <div id="how-it-works">
+        <div class="max-w-7xl mx-auto px-6 md:px-12">
+            <div class="text-center mb-16">
+                <p class="text-[10px] font-black uppercase tracking-[0.35em] text-secondary mb-4">How it works</p>
+                <h2 class="text-3xl font-bold text-gray-900 dark:text-white md:text-4xl">From brief to approved content in days</h2>
+                <p class="mt-4 text-gray-600 dark:text-gray-300 max-w-xl mx-auto">Splennet handles every step — so brands get quality content and creators get paid fairly, every time.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-16 items-start">
+                <!-- For Brands -->
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest text-primary mb-6">For Brands</p>
+                    <div class="space-y-6">
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 rounded-xl bg-primary text-white font-black flex items-center justify-center text-sm flex-shrink-0">1</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 dark:text-white">Post a brief</h4>
+                                <p class="text-sm text-gray-500 mt-1">Describe your campaign, content requirements, budget, and deadline. Choose from campaigns, UGC orders, or contests.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 rounded-xl bg-primary text-white font-black flex items-center justify-center text-sm flex-shrink-0">2</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 dark:text-white">Review applications</h4>
+                                <p class="text-sm text-gray-500 mt-1">Browse creator profiles and proposals. Shortlist the right fit and approve who proceeds to create.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 rounded-xl bg-primary text-white font-black flex items-center justify-center text-sm flex-shrink-0">3</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 dark:text-white">Approve & pay</h4>
+                                <p class="text-sm text-gray-500 mt-1">Review submitted content. Approve what you love — payment releases automatically from escrow.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- For Creators -->
+                <div>
+                    <p class="text-xs font-black uppercase tracking-widest text-secondary mb-6">For Creators</p>
+                    <div class="space-y-6">
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 rounded-xl bg-secondary text-white font-black flex items-center justify-center text-sm flex-shrink-0">1</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 dark:text-white">Verify your student status</h4>
+                                <p class="text-sm text-gray-500 mt-1">Submit your student ID to get verified. This unlocks your ability to apply for all active opportunities.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 rounded-xl bg-secondary text-white font-black flex items-center justify-center text-sm flex-shrink-0">2</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 dark:text-white">Apply for briefs</h4>
+                                <p class="text-sm text-gray-500 mt-1">Browse the catalog of campaigns, UGC orders, and contests. Apply with a short pitch and portfolio link.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="w-9 h-9 rounded-xl bg-secondary text-white font-black flex items-center justify-center text-sm flex-shrink-0">3</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 dark:text-white">Create, submit, earn</h4>
+                                <p class="text-sm text-gray-500 mt-1">Produce your content, submit the link, and get paid once the brand approves. It's that straightforward.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Why Splennet -->
     <div id="features">
         <div class="max-w-7xl mx-auto px-6 md:px-12">
-            <div class="md:w-2/3 lg:w-1/2">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-secondary">
-                    <path fill-rule="evenodd" d="M9 4.5a.75.75 0 01.721.544l.813 2.846a3.75 3.75 0 002.576 2.576l2.846.813a.75.75 0 010 1.442l-2.846.813a3.75 3.75 0 00-2.576 2.576l-.813 2.846a.75.75 0 01-1.442 0l-.813-2.846a3.75 3.75 0 00-2.576-2.576l-2.846-.813a.75.75 0 010-1.442l2.846-.813A3.75 3.75 0 007.466 7.89l.813-2.846A.75.75 0 019 4.5z" clip-rule="evenodd" />
-                </svg>
-                <h2 class="my-8 text-2xl font-bold text-gray-700 dark:text-white md:text-4xl">
+            <div class="md:w-2/3 lg:w-1/2 mb-16">
+                <h2 class="text-2xl font-bold text-gray-700 dark:text-white md:text-4xl">
                     A better way to source UGC
                 </h2>
-                <p class="text-gray-600 dark:text-gray-300">Splennet simplifies the process of working with student creators. From discovery to payout, we handle the friction so you can focus on growth.</p>
+                <p class="mt-4 text-gray-600 dark:text-gray-300">Splennet removes the friction from brand-creator collaboration. No agency overhead. No unreliable freelancers. Just verified students, clear briefs, and escrow-backed payments.</p>
             </div>
-            <div class="mt-16 grid divide-x divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden rounded-3xl border border-gray-100 text-gray-600 dark:border-gray-700 sm:grid-cols-2 lg:grid-cols-3 lg:divide-y-0 xl:grid-cols-3">
+            <div class="grid divide-x divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden rounded-3xl border border-gray-100 text-gray-600 dark:border-gray-700 sm:grid-cols-2 lg:grid-cols-3 lg:divide-y-0">
                 <div class="group relative bg-white dark:bg-gray-800 transition hover:z-[1] hover:shadow-2xl hover:shadow-gray-600/10">
                     <div class="relative space-y-8 py-12 p-8">
-                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl">👤</div>
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-2xl">✅</div>
                         <div class="space-y-2">
-                            <h5 class="text-xl font-bold text-gray-800 dark:text-white transition group-hover:text-secondary">Top Creators</h5>
-                            <p class="text-gray-700 dark:text-gray-300 font-medium">Ama from UG. Pro UGC creator for Beauty and Lifestyle brands.</p>
+                            <h5 class="text-xl font-bold text-gray-800 dark:text-white transition group-hover:text-secondary">Verified Creators</h5>
+                            <p class="text-gray-700 dark:text-gray-300 font-medium">Every creator on Splennet is a verified enrolled student. No fake accounts, no bots — just real campus voices.</p>
                         </div>
                     </div>
                 </div>
@@ -110,8 +174,8 @@ include 'includes/header.php';
                     <div class="relative space-y-8 py-12 p-8">
                         <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center text-secondary text-2xl">🎬</div>
                         <div class="space-y-2">
-                            <h5 class="text-xl font-bold text-gray-800 dark:text-white transition group-hover:text-secondary">Active Briefs</h5>
-                            <p class="text-gray-700 dark:text-gray-300 font-medium">GlowSkin Africa is hiring 5 creators for a skincare routine. $50/video.</p>
+                            <h5 class="text-xl font-bold text-gray-800 dark:text-white transition group-hover:text-secondary">Campaigns, Contests & UGC Orders</h5>
+                            <p class="text-gray-700 dark:text-gray-300 font-medium">Three flexible content formats — pick what works for your campaign goal and scale accordingly.</p>
                         </div>
                     </div>
                 </div>
@@ -119,8 +183,8 @@ include 'includes/header.php';
                     <div class="relative space-y-8 py-12 p-8">
                         <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-2xl">💳</div>
                         <div class="space-y-2">
-                            <h5 class="text-xl font-bold text-gray-800 dark:text-white transition group-hover:text-secondary">Secure Escrow</h5>
-                            <p class="text-gray-700 dark:text-gray-300 font-medium">Money is held safely and only released once you approve the video link.</p>
+                            <h5 class="text-xl font-bold text-gray-800 dark:text-white transition group-hover:text-secondary">Escrow-Protected Payments</h5>
+                            <p class="text-gray-700 dark:text-gray-300 font-medium">Funds are held securely and only released when you approve the content. Zero risk of paying for work you don't use.</p>
                         </div>
                     </div>
                 </div>
@@ -146,7 +210,7 @@ include 'includes/header.php';
                 <div class="mt-6 m-auto space-y-6 md:w-8/12 lg:w-7/12">
                     <h1 class="text-center text-4xl font-bold text-gray-800 dark:text-white md:text-5xl">Ready to start?</h1>
                     <p class="text-center text-xl text-gray-600 dark:text-gray-300">
-                        Join 100+ brands and 1000+ verified student creators today.
+                        Brands get authentic content. Creators get paid. Everyone wins.
                     </p>
                     <div class="flex flex-wrap justify-center gap-6">
                         <a href="register.php" class="relative flex h-12 w-full items-center justify-center px-8 before:absolute before:inset-0 before:rounded-full before:bg-primary before:transition before:duration-300 hover:before:scale-105 active:duration-75 active:before:scale-95 sm:w-max">

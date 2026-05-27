@@ -138,7 +138,7 @@ include '../includes/header.php';
                     <h3 class="text-xl md:text-2xl font-black text-gray-900 dark:text-white"><?php echo $contest_wins; ?></h3>
                 </div>
                 <div class="p-4 md:p-6 bg-white dark:bg-gray-900 rounded-2xl md:rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">UGC Submitted</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Campaign Videos</p>
                     <h3 class="text-xl md:text-2xl font-black text-gray-900 dark:text-white"><?php echo $ugc_submissions; ?></h3>
                 </div>
             </div>

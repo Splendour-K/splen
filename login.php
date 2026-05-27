@@ -48,8 +48,9 @@ include 'includes/header.php';
 
     <div class="max-w-md w-full px-6 relative">
         <div class="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-2xl shadow-gray-600/10 p-8 md:p-12">
-            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 text-center">Welcome Back</h2>
-            <p class="text-gray-600 dark:text-gray-400 text-center mb-8">Login to manage your UGC campaigns</p>
+            <a href="<?php echo APP_URL; ?>index.php" class="block text-center text-2xl font-black text-gray-900 dark:text-white tracking-tighter mb-6">SPLEN<span class="text-primary italic">NET</span></a>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">Welcome back</h2>
+            <p class="text-gray-500 dark:text-gray-400 text-center text-sm mb-8">Sign in to your brand or creator account</p>
 
             <?php if ($error): ?>
                 <div class="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-sm mb-6 border border-red-100 dark:border-red-800">

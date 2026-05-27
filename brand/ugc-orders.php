@@ -38,12 +38,12 @@ include '../includes/header.php';
             <header class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm">
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">UGC Commissions</p>
-                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white">My UGC Orders</h2>
-                        <p class="text-gray-600 dark:text-gray-400 mt-2">Commission videos, review submissions, and approve payments.</p>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400">Content Campaigns</p>
+                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white">My Campaigns</h2>
+                        <p class="text-gray-600 dark:text-gray-400 mt-2">Post video briefs, review creator submissions, and approve payments — all in one place.</p>
                     </div>
-                    <a href="create-ugc-order.php" class="inline-flex items-center px-6 py-3 bg-secondary text-white font-bold rounded-xl hover:scale-105 transition-all w-fit">
-                        New UGC Order
+                    <a href="create-ugc-order.php" class="inline-flex items-center px-6 py-3 bg-primary text-white font-bold rounded-xl hover:scale-105 transition-all w-fit">
+                        + New Campaign
                     </a>
                 </div>
             </header>
@@ -75,8 +75,8 @@ include '../includes/header.php';
                                 </p>
                             </div>
                             <div class="flex flex-wrap gap-3">
-                                <a href="ugc-order-review.php?order_id=<?php echo $order['id']; ?>" class="px-5 py-3 bg-secondary text-white font-bold rounded-xl text-sm hover:scale-105 transition">
-                                    Review & Approve
+                                <a href="ugc-order-review.php?order_id=<?php echo $order['id']; ?>" class="px-5 py-3 bg-primary text-white font-bold rounded-xl text-sm hover:scale-105 transition">
+                                    Review Submissions
                                 </a>
                                 <a href="edit-ugc-order.php?id=<?php echo $order['id']; ?>" class="px-5 py-3 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold rounded-xl text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition">
                                     Edit

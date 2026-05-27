@@ -61,3 +61,8 @@ ALTER TABLE ugc_order_submissions ADD COLUMN flag_reason TEXT NULL;
 ALTER TABLE ugc_order_submissions ADD COLUMN flagged_at TIMESTAMP NULL;
 ALTER TABLE ugc_order_submissions ADD COLUMN watermark_approved TINYINT(1) DEFAULT 0;
 ALTER TABLE ugc_order_submissions ADD COLUMN clean_file_unlocked_at TIMESTAMP NULL;
+
+-- Campaign (UGC Order) submissions: brand feedback on rejection/revision
+ALTER TABLE ugc_order_submissions ADD COLUMN brand_feedback TEXT NULL;
+-- Add 'rejected' to status ENUM (alongside existing values)
+ALTER TABLE ugc_order_submissions MODIFY COLUMN status ENUM('submitted','under_review','revision_requested','approved','rejected','disqualified','payment_ready','paid') DEFAULT 'submitted';

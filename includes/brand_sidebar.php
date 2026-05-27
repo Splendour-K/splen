@@ -42,19 +42,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <nav class="space-y-1">
             <?php
             $nav_items = [
-                ['url' => 'dashboard.php', 'label' => 'Overview'],
-                ['url' => 'create-campaign.php', 'label' => 'Create Campaign'],
-                ['url' => 'my-campaigns.php', 'label' => 'My Campaigns'],
-                ['url' => 'applications.php', 'label' => 'Applications'],
-                ['url' => 'submissions.php', 'label' => 'Work Reviews'],
-                ['url' => 'create-ugc-order.php', 'label' => 'New UGC Order'],
-                ['url' => 'ugc-orders.php', 'label' => 'UGC Orders'],
-                ['url' => 'create-contest.php', 'label' => 'New Contest'],
-                ['url' => 'my-contests.php', 'label' => 'My Contests'],
-                ['url' => 'wallet.php', 'label' => '💳 Wallet'],
-                ['url' => 'subscription.php', 'label' => 'Subscription'],
-                ['url' => 'messages.php', 'label' => 'Messages'],
-                ['url' => 'notifications.php', 'label' => 'Notifications'],
+                ['url' => 'dashboard.php',       'label' => 'Overview'],
+                ['url' => 'create-ugc-order.php','label' => '+ New Campaign'],
+                ['url' => 'ugc-orders.php',      'label' => 'My Campaigns'],
+                ['url' => 'create-contest.php',  'label' => '+ New Contest'],
+                ['url' => 'my-contests.php',     'label' => 'My Contests'],
+                ['url' => 'wallet.php',          'label' => '💳 Wallet'],
+                ['url' => 'messages.php',        'label' => 'Messages'],
+                ['url' => 'notifications.php',   'label' => 'Notifications'],
             ];
 
             foreach ($nav_items as $item):

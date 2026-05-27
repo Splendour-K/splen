@@ -56,16 +56,13 @@ if (isset($pdo) && isset($_SESSION['user_id'])) {
 
             $nav_items = [
                 ['url' => 'dashboard.php',      'label' => 'Overview'],
-                ['url' => 'browse.php',          'label' => 'Browse Campaigns'],
-                ['url' => 'contest-board.php',   'label' => 'Contest Board'],
-                ['url' => 'ugc-orders.php',      'label' => 'UGC Orders'],
-                ['url' => 'my-applications.php', 'label' => 'My Applications'],
-                ['url' => 'my-jobs.php',         'label' => 'My Jobs'],
-                ['url' => 'my-contests.php',     'label' => 'My Contests'],
-                ['url' => 'community.php',       'label' => 'Community'],
-                ['url' => 'messages.php',        'label' => 'Messages'],
-                ['url' => 'earnings.php',        'label' => 'Earnings'],
-                ['url' => 'notifications.php',   'label' => 'Notifications'],
+                ['url' => 'ugc-orders.php',     'label' => 'Campaigns'],
+                ['url' => 'contest-board.php',  'label' => 'Contest Board'],
+                ['url' => 'my-contests.php',    'label' => 'My Contests'],
+                ['url' => 'community.php',      'label' => 'Community'],
+                ['url' => 'messages.php',       'label' => 'Messages'],
+                ['url' => 'earnings.php',       'label' => 'Earnings'],
+                ['url' => 'notifications.php',  'label' => 'Notifications'],
             ];
 
             foreach ($nav_items as $item):

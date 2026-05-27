@@ -147,13 +147,23 @@ include 'includes/header.php';
                     </div>
                 </div>
 
+                <div class="flex items-start gap-3">
+                    <input type="checkbox" id="agree-terms" required class="mt-1 w-4 h-4 accent-primary flex-shrink-0">
+                    <label for="agree-terms" class="text-xs text-gray-500 leading-relaxed">
+                        By creating an account, you confirm that you have read and agree to our
+                        <a href="<?php echo APP_URL; ?>terms.php" target="_blank" class="text-primary font-semibold hover:underline">Terms of Use</a>
+                        and
+                        <a href="<?php echo APP_URL; ?>privacy.php" target="_blank" class="text-primary font-semibold hover:underline">Privacy Policy</a>.
+                    </label>
+                </div>
+
                 <button type="submit" class="relative flex h-12 w-full items-center justify-center px-8 before:absolute before:inset-0 before:rounded-full before:bg-primary before:transition before:duration-300 hover:before:scale-[1.02] active:duration-75 active:before:scale-95">
                     <span class="relative text-base font-semibold text-white">Create Account</span>
                 </button>
             </form>
-            
+
             <p class="mt-8 text-center text-gray-600 dark:text-gray-400">
-                Already have an account? <a href="login.php" class="text-primary font-semibold hover:underline">Login</a>
+                Already have an account? <a href="login.php" class="text-primary font-semibold hover:underline">Sign in</a>
             </p>
         </div>
     </div>
