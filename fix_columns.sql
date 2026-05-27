@@ -66,3 +66,20 @@ ALTER TABLE ugc_order_submissions ADD COLUMN clean_file_unlocked_at TIMESTAMP NU
 ALTER TABLE ugc_order_submissions ADD COLUMN brand_feedback TEXT NULL;
 -- Add 'rejected' to status ENUM (alongside existing values)
 ALTER TABLE ugc_order_submissions MODIFY COLUMN status ENUM('submitted','under_review','revision_requested','approved','rejected','disqualified','payment_ready','paid') DEFAULT 'submitted';
+
+-- ============================================================
+-- Payout Currency & Multi-Currency Bank Details
+-- Run these after deploying the payout-currency feature.
+-- ============================================================
+
+-- Creator: country of residence (used to auto-assign default payout currency)
+ALTER TABLE creators ADD COLUMN country VARCHAR(100) NULL;
+
+-- Creator: preferred payout currency (NGN | GHS | USD)
+ALTER TABLE creators ADD COLUMN payout_currency VARCHAR(3) NULL DEFAULT 'USD';
+
+-- Creator: bank/payout details stored per currency as JSON
+-- Example: {"NGN":{"bank_name":"GTBank","account_name":"Jane Doe","account_number":"0123456789"},
+--           "GHS":{"bank_name":"Ecobank","account_name":"Jane Doe","account_number":"0012345678","momo_number":"0241234567"},
+--           "USD":{"bank_name":"Chase","account_name":"Jane Doe","account_number":"123456789","routing_number":"021000021","swift_bic":"CHASUS33"}}
+ALTER TABLE creators ADD COLUMN bank_details_json TEXT NULL COMMENT 'JSON keyed by currency code: NGN, GHS, USD';

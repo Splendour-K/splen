@@ -398,6 +398,18 @@ function validate_minimum_payment($amount, $currency = "USD") {
 }
 
 /**
+ * Map a country name to its default payout currency.
+ * Returns NGN for Nigeria, GHS for Ghana, USD for all others.
+ * Used during registration and as a fallback on the earnings page.
+ */
+function country_to_currency(string $country): string {
+    $c = strtolower(trim($country));
+    if (str_contains($c, 'nigeria')) return 'NGN';
+    if (str_contains($c, 'ghana'))   return 'GHS';
+    return 'USD'; // default for any unsupported / unknown country
+}
+
+/**
  * Currency: supported list, symbols, and admin-set exchange rates.
  * Rates are stored as "1 USD = X target currency" in site_settings (key: fx_rate_<CCY>).
  * USD is the canonical base. Edit rates at admin/settings.php.

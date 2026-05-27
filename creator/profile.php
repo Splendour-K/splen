@@ -11,12 +11,33 @@ $creator = $stmt->fetch();
 $error = '';
 $success = '';
 
+// Decode existing bank details JSON
+$bank_details = [];
+if (!empty($creator['bank_details_json'])) {
+    $decoded = json_decode($creator['bank_details_json'], true);
+    if (is_array($decoded)) $bank_details = $decoded;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $full_name = $_POST['full_name'];
-    $bio = $_POST['bio'];
-    $tiktok = $_POST['tiktok_handle'];
-    $ig = $_POST['instagram_handle'];
-    $niche = $_POST['main_niche'];
+    $bio       = $_POST['bio'];
+    $tiktok    = $_POST['tiktok_handle'];
+    $ig        = $_POST['instagram_handle'];
+    $niche     = $_POST['main_niche'];
+    $country   = trim($_POST['country'] ?? ($creator['country'] ?? ''));
+
+    // Payout currency — validate
+    $payout_currency = strtoupper(trim($_POST['payout_currency'] ?? 'USD'));
+    if (!in_array($payout_currency, ['NGN', 'GHS', 'USD'])) $payout_currency = 'USD';
+
+    // Bank details per currency — merge submitted with existing
+    foreach (['NGN', 'GHS', 'USD'] as $ccy) {
+        $submitted = $_POST['bank'][$ccy] ?? [];
+        if (!empty(array_filter($submitted))) {
+            $bank_details[$ccy] = array_map('trim', $submitted);
+        }
+    }
+    $bank_details_json = json_encode($bank_details, JSON_UNESCAPED_UNICODE);
 
     // Handle optional profile photo upload
     $photo_path = $creator['profile_photo'] ?? null;
@@ -44,18 +65,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$error) {
-        $upd = $pdo->prepare("UPDATE creators SET full_name = ?, bio = ?, tiktok_handle = ?, instagram_handle = ?, main_niche = ?, profile_photo = ? WHERE user_id = ?");
         try {
-            $upd->execute([$full_name, $bio, $tiktok, $ig, $niche, $photo_path, $_SESSION['user_id']]);
+            $upd = $pdo->prepare("UPDATE creators SET full_name=?, bio=?, tiktok_handle=?, instagram_handle=?, main_niche=?, profile_photo=?, country=?, payout_currency=?, bank_details_json=? WHERE user_id=?");
+            $upd->execute([$full_name, $bio, $tiktok, $ig, $niche, $photo_path, $country ?: null, $payout_currency, $bank_details_json, $_SESSION['user_id']]);
             $success = "Profile updated successfully!";
             // Refresh data
             $stmt->execute([$_SESSION['user_id']]);
             $creator = $stmt->fetch();
+            $bank_details = json_decode($creator['bank_details_json'] ?? '{}', true) ?: [];
         } catch (Exception $e) {
             $error = "Error updating profile: " . $e->getMessage();
         }
     }
 }
+
+// Helper to get bank field value
+$bv = function(string $ccy, string $field) use ($bank_details): string {
+    return htmlspecialchars($bank_details[$ccy][$field] ?? '', ENT_QUOTES, 'UTF-8');
+};
 
 include '../includes/header.php';
 ?>
@@ -170,12 +197,174 @@ include '../includes/header.php';
                     </section>
                 </div>
 
+                <!-- ── Payout Settings ── -->
+                <section id="payout-settings" class="p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-sm space-y-8">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                            <span class="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-sm">💳</span>
+                            Payout Settings
+                        </h3>
+                        <p class="text-sm text-gray-500 mt-1">Choose your preferred payout currency and enter bank details so we can process your earnings correctly.</p>
+                    </div>
+
+                    <!-- Country + Payout Currency -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Country of Residence</label>
+                            <select name="country" class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-gray-900 rounded-2xl transition-all outline-none font-medium text-gray-900 dark:text-white">
+                                <option value="">Select your country</option>
+                                <optgroup label="🌍 Africa">
+                                    <?php foreach (['Nigeria','Ghana','Kenya','South Africa','Uganda','Tanzania','Senegal','Cameroon','Ivory Coast','Zimbabwe'] as $c): ?>
+                                        <option value="<?php echo $c; ?>" <?php echo ($creator['country'] ?? '') === $c ? 'selected' : ''; ?>><?php echo $c; ?><?php echo $c==='Nigeria'?' (NGN)':($c==='Ghana'?' (GHS)':''); ?></option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                                <optgroup label="🌐 Other">
+                                    <?php foreach (['United Kingdom','United States','Canada','Other'] as $c): ?>
+                                        <option value="<?php echo $c; ?>" <?php echo ($creator['country'] ?? '') === $c ? 'selected' : ''; ?>><?php echo $c; ?></option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Preferred Payout Currency</label>
+                            <select name="payout_currency" id="payout-currency-select"
+                                    onchange="showPayoutTab(this.value)"
+                                    class="w-full px-5 py-3 bg-gray-50 dark:bg-gray-800 border-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-gray-900 rounded-2xl transition-all outline-none font-medium text-gray-900 dark:text-white">
+                                <option value="NGN" <?php echo ($creator['payout_currency'] ?? 'USD') === 'NGN' ? 'selected' : ''; ?>>🇳🇬 NGN — Nigerian Naira</option>
+                                <option value="GHS" <?php echo ($creator['payout_currency'] ?? 'USD') === 'GHS' ? 'selected' : ''; ?>>🇬🇭 GHS — Ghanaian Cedis</option>
+                                <option value="USD" <?php echo ($creator['payout_currency'] ?? 'USD') === 'USD' ? 'selected' : ''; ?>>🌐 USD — US Dollar</option>
+                            </select>
+                            <p class="text-xs text-gray-400 mt-1.5 ml-1">All earnings are converted to this currency for payout. Admin-set exchange rates apply.</p>
+                        </div>
+                    </div>
+
+                    <!-- Bank Details Tabs -->
+                    <div class="space-y-4">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">Bank / Payout Details</p>
+                        <p class="text-xs text-gray-500 -mt-2">Fill in your details for the currencies you want to receive payouts in. You can add details for multiple currencies — we'll use your preferred currency above.</p>
+
+                        <!-- Tab buttons -->
+                        <div class="flex gap-2 flex-wrap" id="payout-tab-btns">
+                            <?php foreach (['NGN' => '🇳🇬 Nigerian Naira', 'GHS' => '🇬🇭 Ghanaian Cedis', 'USD' => '🌐 US Dollar'] as $ccy => $label): ?>
+                                <button type="button" onclick="showPayoutTab('<?php echo $ccy; ?>')"
+                                        id="tab-btn-<?php echo $ccy; ?>"
+                                        class="px-4 py-2 rounded-xl text-sm font-bold transition tab-btn <?php echo ($creator['payout_currency'] ?? 'USD') === $ccy ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-primary/10'; ?>">
+                                    <?php echo $label; ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <!-- NGN Fields -->
+                        <div id="payout-tab-NGN" class="payout-tab space-y-4 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 <?php echo ($creator['payout_currency'] ?? 'USD') !== 'NGN' ? 'hidden' : ''; ?>">
+                            <p class="text-xs font-black uppercase tracking-widest text-orange-600 mb-3">🇳🇬 Nigerian Bank Account (NGN)</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Bank Name</label>
+                                    <input type="text" name="bank[NGN][bank_name]" value="<?php echo $bv('NGN','bank_name'); ?>" placeholder="e.g. GTBank, Access Bank, Zenith" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Account Number</label>
+                                    <input type="text" name="bank[NGN][account_number]" value="<?php echo $bv('NGN','account_number'); ?>" placeholder="10-digit NUBAN account number" maxlength="10" pattern="\d{10}" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white font-mono">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Account Name (as on bank records)</label>
+                                <input type="text" name="bank[NGN][account_name]" value="<?php echo $bv('NGN','account_name'); ?>" placeholder="Full name as it appears on your bank account" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white">
+                            </div>
+                        </div>
+
+                        <!-- GHS Fields -->
+                        <div id="payout-tab-GHS" class="payout-tab space-y-4 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 <?php echo ($creator['payout_currency'] ?? 'USD') !== 'GHS' ? 'hidden' : ''; ?>">
+                            <p class="text-xs font-black uppercase tracking-widest text-green-700 mb-3">🇬🇭 Ghanaian Bank Account (GHS)</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Bank Name</label>
+                                    <input type="text" name="bank[GHS][bank_name]" value="<?php echo $bv('GHS','bank_name'); ?>" placeholder="e.g. Ecobank, GCB, Absa Ghana" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Account Number</label>
+                                    <input type="text" name="bank[GHS][account_number]" value="<?php echo $bv('GHS','account_number'); ?>" placeholder="Bank account number" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white font-mono">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Account Name</label>
+                                <input type="text" name="bank[GHS][account_name]" value="<?php echo $bv('GHS','account_name'); ?>" placeholder="Full name as it appears on your bank account" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white">
+                            </div>
+                            <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Mobile Money Number <span class="text-gray-400 font-normal normal-case">(optional — MoMo / MTN / Vodafone Cash)</span></label>
+                                <input type="text" name="bank[GHS][momo_number]" value="<?php echo $bv('GHS','momo_number'); ?>" placeholder="e.g. 0241234567" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white font-mono">
+                                <p class="text-xs text-gray-400 mt-1">We'll use bank account by default; MoMo is a backup option.</p>
+                            </div>
+                        </div>
+
+                        <!-- USD Fields -->
+                        <div id="payout-tab-USD" class="payout-tab space-y-4 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 <?php echo ($creator['payout_currency'] ?? 'USD') !== 'USD' ? 'hidden' : ''; ?>">
+                            <p class="text-xs font-black uppercase tracking-widest text-blue-600 mb-3">🌐 USD Bank Account</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Bank Name</label>
+                                    <input type="text" name="bank[USD][bank_name]" value="<?php echo $bv('USD','bank_name'); ?>" placeholder="e.g. Chase, Bank of America" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Account Holder Name</label>
+                                    <input type="text" name="bank[USD][account_name]" value="<?php echo $bv('USD','account_name'); ?>" placeholder="Full legal name on your account" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Account Number (Checking)</label>
+                                    <input type="text" name="bank[USD][account_number]" value="<?php echo $bv('USD','account_number'); ?>" placeholder="Checking account number" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white font-mono">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">ACH Routing Number <span class="text-gray-400 font-normal normal-case">(US only)</span></label>
+                                    <input type="text" name="bank[USD][routing_number]" value="<?php echo $bv('USD','routing_number'); ?>" placeholder="9-digit routing number" maxlength="9" class="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white font-mono">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">SWIFT / BIC Code <span class="text-gray-400 font-normal normal-case">(for international wires)</span></label>
+                                <input type="text" name="bank[USD][swift_bic]" value="<?php echo $bv('USD','swift_bic'); ?>" placeholder="e.g. CHASUS33, BOFAUS3N" class="w-full md:w-1/2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:border-primary text-sm font-medium dark:text-white font-mono uppercase">
+                                <p class="text-xs text-gray-400 mt-1">Required for international USD transfers. Not needed for ACH within the US.</p>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl">
+                            <p class="text-xs text-amber-800 dark:text-amber-300 font-medium">🔒 Your bank details are stored securely and only used by Splennet admins to process your payouts. They are never shared with brands.</p>
+                        </div>
+                    </div>
+                </section>
+
                 <div class="flex justify-end pt-4">
                     <button type="submit" class="px-12 py-5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-lg font-black rounded-2xl shadow-xl hover:bg-primary hover:text-white transition-all transform hover:scale-105 active:scale-95">
                         Save Changes
                     </button>
                 </div>
             </form>
+
+            <script>
+            function showPayoutTab(ccy) {
+                // Hide all tab panels
+                document.querySelectorAll('.payout-tab').forEach(el => el.classList.add('hidden'));
+                // Deactivate all buttons
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('bg-primary', 'text-white');
+                    btn.classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-gray-600', 'dark:text-gray-300');
+                });
+                // Show selected panel
+                const panel = document.getElementById('payout-tab-' + ccy);
+                if (panel) panel.classList.remove('hidden');
+                // Activate selected button
+                const btn = document.getElementById('tab-btn-' + ccy);
+                if (btn) {
+                    btn.classList.add('bg-primary', 'text-white');
+                    btn.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'text-gray-600', 'dark:text-gray-300');
+                }
+                // Keep select in sync
+                const sel = document.getElementById('payout-currency-select');
+                if (sel) sel.value = ccy;
+            }
+            // Init to saved payout currency
+            showPayoutTab('<?php echo htmlspecialchars($creator['payout_currency'] ?? 'USD', ENT_QUOTES); ?>');
+            </script>
         </main>
     </div>
 </div>

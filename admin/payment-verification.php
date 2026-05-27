@@ -39,7 +39,8 @@ if ($sort === 'amount_high') {
 }
 
 $stmt = $pdo->prepare("
-    SELECT p.*, cr.full_name as creator_name, b.brand_name AS company_name
+    SELECT p.*, cr.full_name as creator_name, cr.payout_currency, cr.bank_details_json,
+           b.brand_name AS company_name
     FROM payments p
     LEFT JOIN creators cr ON p.creator_id = cr.id
     LEFT JOIN jobs j ON p.job_id = j.id
@@ -135,10 +136,38 @@ include '../includes/header.php';
                                 <?php foreach ($payments as $payment): ?>
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                                         <td class="px-6 py-4">
+                                            <?php
+                                                $pc = strtoupper($payment['payout_currency'] ?? 'USD');
+                                                $bd = json_decode($payment['bank_details_json'] ?? '{}', true) ?: [];
+                                                $bd_ccy = $bd[$pc] ?? [];
+                                            ?>
                                             <p class="font-bold text-gray-900 dark:text-white text-sm"><?php echo e($payment['creator_name'] ?? 'N/A'); ?></p>
+                                            <?php if (!empty($bd_ccy)): ?>
+                                                <p class="text-[10px] text-gray-500 mt-0.5">
+                                                    Payout: <span class="font-bold text-primary"><?php echo $pc; ?></span>
+                                                    · <?php echo e($bd_ccy['bank_name'] ?? ''); ?>
+                                                    · <?php echo e($bd_ccy['account_number'] ?? ''); ?>
+                                                </p>
+                                                <?php if (!empty($bd_ccy['account_name'])): ?>
+                                                    <p class="text-[10px] text-gray-400"><?php echo e($bd_ccy['account_name']); ?></p>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <p class="text-[10px] text-orange-500 font-semibold mt-0.5">⚠ No bank details for <?php echo $pc; ?></p>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="px-6 py-4">
-                                            <p class="font-bold text-gray-900 dark:text-white"><?php echo number_format((float)($payment['calculated_amount'] ?? $payment['amount'] ?? 0), 2); ?> <?php echo e($payment['currency'] ?? 'USD'); ?></p>
+                                            <?php
+                                                $gross  = (float)($payment['amount'] ?? 0);
+                                                $net    = (float)($payment['net_amount'] ?? $payment['calculated_amount'] ?? $gross);
+                                                $orig_ccy = strtoupper($payment['currency'] ?? 'USD');
+                                            ?>
+                                            <p class="font-bold text-gray-900 dark:text-white"><?php echo format_money($net, $orig_ccy); ?></p>
+                                            <?php if ($orig_ccy !== $pc && $net > 0): ?>
+                                                <p class="text-[10px] text-primary font-bold">
+                                                    ≈ <?php echo format_money(convert_currency($net, $orig_ccy, $pc), $pc); ?>
+                                                </p>
+                                            <?php endif; ?>
+                                            <p class="text-[10px] text-gray-400">gross <?php echo format_money($gross, $orig_ccy); ?></p>
                                         </td>
                                         <td class="px-6 py-4">
                                             <span class="text-[10px] font-bold uppercase bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded"><?php echo e($payment['payment_type']); ?></span>

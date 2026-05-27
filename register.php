@@ -48,10 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $pdo->prepare("INSERT INTO brands (user_id, brand_name, contact_person) VALUES (?, ?, ?)");
                     $stmt->execute([$user_id, $brand_name, $contact_person]);
                 } else if ($role === 'creator') {
-                    $full_name = $_POST['full_name'] ?? '';
-                    $school = $_POST['school'] ?? '';
-                    $stmt = $pdo->prepare("INSERT INTO creators (user_id, full_name, school) VALUES (?, ?, ?)");
-                    $stmt->execute([$user_id, $full_name, $school]);
+                    $full_name        = $_POST['full_name']  ?? '';
+                    $school           = $_POST['school']     ?? '';
+                    $country          = trim($_POST['country'] ?? '');
+                    $payout_currency  = $country ? country_to_currency($country) : 'USD';
+                    $stmt = $pdo->prepare("INSERT INTO creators (user_id, full_name, school, country, payout_currency) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->execute([$user_id, $full_name, $school, $country ?: null, $payout_currency]);
                 }
 
                 $pdo->commit();
@@ -108,6 +110,31 @@ include 'includes/header.php';
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">School</label>
                         <input type="text" name="school" placeholder="University of Ghana" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Country <span class="text-xs text-gray-400 font-normal">(used to set your default payout currency)</span></label>
+                        <select name="country" class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition">
+                            <option value="">Select your country</option>
+                            <optgroup label="🌍 Africa">
+                                <option value="Nigeria"      <?php echo ($_POST['country'] ?? '') === 'Nigeria'      ? 'selected' : ''; ?>>Nigeria (NGN)</option>
+                                <option value="Ghana"        <?php echo ($_POST['country'] ?? '') === 'Ghana'        ? 'selected' : ''; ?>>Ghana (GHS)</option>
+                                <option value="Kenya"        <?php echo ($_POST['country'] ?? '') === 'Kenya'        ? 'selected' : ''; ?>>Kenya</option>
+                                <option value="South Africa" <?php echo ($_POST['country'] ?? '') === 'South Africa' ? 'selected' : ''; ?>>South Africa</option>
+                                <option value="Uganda"       <?php echo ($_POST['country'] ?? '') === 'Uganda'       ? 'selected' : ''; ?>>Uganda</option>
+                                <option value="Tanzania"     <?php echo ($_POST['country'] ?? '') === 'Tanzania'     ? 'selected' : ''; ?>>Tanzania</option>
+                                <option value="Senegal"      <?php echo ($_POST['country'] ?? '') === 'Senegal'      ? 'selected' : ''; ?>>Senegal</option>
+                                <option value="Cameroon"     <?php echo ($_POST['country'] ?? '') === 'Cameroon'     ? 'selected' : ''; ?>>Cameroon</option>
+                                <option value="Ivory Coast"  <?php echo ($_POST['country'] ?? '') === 'Ivory Coast'  ? 'selected' : ''; ?>>Ivory Coast</option>
+                                <option value="Zimbabwe"     <?php echo ($_POST['country'] ?? '') === 'Zimbabwe'     ? 'selected' : ''; ?>>Zimbabwe</option>
+                            </optgroup>
+                            <optgroup label="🌐 Other">
+                                <option value="United Kingdom"<?php echo ($_POST['country'] ?? '') === 'United Kingdom'? 'selected' : ''; ?>>United Kingdom</option>
+                                <option value="United States" <?php echo ($_POST['country'] ?? '') === 'United States' ? 'selected' : ''; ?>>United States</option>
+                                <option value="Canada"        <?php echo ($_POST['country'] ?? '') === 'Canada'        ? 'selected' : ''; ?>>Canada</option>
+                                <option value="Other"         <?php echo ($_POST['country'] ?? '') === 'Other'         ? 'selected' : ''; ?>>Other (USD payout)</option>
+                            </optgroup>
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1.5">🇳🇬 Nigeria → Naira (NGN) · 🇬🇭 Ghana → Cedis (GHS) · All others → USD</p>
                     </div>
                 </div>
 

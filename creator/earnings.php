@@ -4,19 +4,18 @@ require_once '../includes/functions.php';
 require_role('creator');
 
 // Fetch Creator data
-$stmt = $pdo->prepare("SELECT id, country FROM creators WHERE user_id = ?");
+$stmt = $pdo->prepare("SELECT id, country, payout_currency, bank_details_json FROM creators WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
 $creator = $stmt->fetch();
 require_creator_record($creator);
 $creator_id = $creator['id'];
 
-// Display currency: ?currency=… on the URL, otherwise default by country
-$default_currency = 'USD';
-if (!empty($creator['country'])) {
-    $country = strtolower($creator['country']);
-    if (str_contains($country, 'nigeria')) $default_currency = 'NGN';
-    elseif (str_contains($country, 'ghana')) $default_currency = 'GHS';
+// Preferred display currency — priority: URL param > payout_currency saved in DB > country fallback
+$db_payout_currency = !empty($creator['payout_currency']) ? strtoupper($creator['payout_currency']) : null;
+if (!$db_payout_currency && !empty($creator['country'])) {
+    $db_payout_currency = country_to_currency($creator['country']);
 }
+$default_currency = in_array($db_payout_currency, supported_currencies()) ? $db_payout_currency : 'USD';
 $display_currency = strtoupper($_GET['currency'] ?? $default_currency);
 if (!in_array($display_currency, supported_currencies())) {
     $display_currency = $default_currency;
@@ -208,6 +207,24 @@ include '../includes/header.php';
                         <p class="text-gray-500 font-medium">No transactions recorded yet.</p>
                     </div>
                 <?php endif; ?>
+            </section>
+            <!-- Payout Settings quick-link -->
+            <section class="p-8 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">Payout Settings</h3>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Your preferred payout currency is currently
+                            <strong class="text-primary"><?php echo e($default_currency); ?> (<?php echo get_currency_symbol($default_currency); ?>)</strong>.
+                            <?php if (empty($creator['bank_details_json']) || !json_decode($creator['bank_details_json'], true)[$default_currency] ?? true): ?>
+                                <span class="text-orange-600 font-semibold">⚠ No bank details saved for <?php echo e($default_currency); ?> yet.</span>
+                            <?php endif; ?>
+                        </p>
+                    </div>
+                    <a href="<?php echo APP_URL; ?>creator/profile.php#payout-settings" class="inline-flex items-center px-6 py-3 bg-primary text-white font-bold rounded-xl hover:scale-105 transition text-sm whitespace-nowrap">
+                        Manage Bank Details →
+                    </a>
+                </div>
             </section>
         </main>
     </div>
